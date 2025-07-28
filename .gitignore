@@ -1,0 +1,51 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Dependencies
+vendor/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage.out
+*.log
+.coverage/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Security
+*.pem
+*.key
+*.cert
+private/
+secrets/
+
+# Local test files
+*_local_test.go
+integration_local_test.go
+
+# Build
+dist/
+tmp/
+temp/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Personal
+.VERSIONING.md

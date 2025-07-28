@@ -1,0 +1,55 @@
+name: Integration Tests
+
+on:
+  # Run on pushes to main and PRs
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  
+  # Run weekly on Sundays at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * 0'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum', '**/go.mod') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Run unit tests
+      run: go test -v -race ./... -short
+    
+    - name: Run integration tests
+      env:
+        THREADS_CLIENT_ID: ${{ secrets.THREADS_CLIENT_ID }}
+        THREADS_CLIENT_SECRET: ${{ secrets.THREADS_CLIENT_SECRET }}
+        THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+        THREADS_REDIRECT_URI: ${{ secrets.THREADS_REDIRECT_URI }}
+        THREADS_TEST_IMG1: ${{ secrets.THREADS_TEST_IMG1 }}
+        THREADS_TEST_IMG2: ${{ secrets.THREADS_TEST_IMG2 }}
+        THREADS_TEST_VID1: ${{ secrets.THREADS_TEST_VID1 }}
+      run: |
+        cd tests/integration
+        go test -v -tags=integration -timeout=30m
