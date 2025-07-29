@@ -19,7 +19,7 @@ type TokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int64  `json:"expires_in,omitempty"`
-	UserID      string `json:"user_id,omitempty"`
+	UserID      int64  `json:"user_id,omitempty"`
 }
 
 // LongLivedTokenResponse represents the response from long-lived token conversion endpoint.
@@ -59,7 +59,7 @@ func (c *Client) GetAuthURL(scopes []string) string {
 	params := url.Values{
 		"client_id":     {c.config.ClientID},
 		"redirect_uri":  {c.config.RedirectURI},
-		"scope":         {strings.Join(scopes, " ")}, // Use space-separated scopes
+		"scope":         {strings.Join(scopes, ",")}, // Use comma-separated scopes
 		"response_type": {"code"},
 		"state":         {state},
 	}
@@ -113,7 +113,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code string) error {
 		AccessToken: tokenResp.AccessToken,
 		TokenType:   tokenResp.TokenType,
 		ExpiresAt:   expiresAt,
-		UserID:      tokenResp.UserID,
+		UserID:      fmt.Sprintf("%d", tokenResp.UserID),
 		CreatedAt:   now,
 	}
 
@@ -127,7 +127,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code string) error {
 	// Log successful authentication if logger is available
 	if c.config.Logger != nil {
 		c.config.Logger.Info("Successfully exchanged authorization code for access token",
-			"user_id", tokenResp.UserID,
+			"user_id", fmt.Sprintf("%d", tokenResp.UserID),
 			"token_type", tokenResp.TokenType,
 			"expires_at", expiresAt)
 	}
