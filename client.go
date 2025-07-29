@@ -245,7 +245,7 @@ func NewConfig() *Config {
 			BackoffFactor: 2.0,
 		},
 		BaseURL:   "https://graph.threads.net",
-		UserAgent: "threads-go/1.0.0",
+		UserAgent: "threads-go/1.0.1",
 		Debug:     false,
 	}
 }
@@ -435,7 +435,7 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.UserAgent == "" {
-		c.UserAgent = "threads-go/1.0.0"
+		c.UserAgent = "threads-go/1.0.1"
 	}
 }
 

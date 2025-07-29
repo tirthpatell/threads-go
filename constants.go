@@ -31,7 +31,7 @@ const (
 
 	// HTTP client defaults
 	DefaultHTTPTimeout = 30 * time.Second // Default HTTP request timeout
-	DefaultUserAgent   = "threads-go/1.0.0"
+	DefaultUserAgent   = "threads-go/1.0.1"
 )
 
 // API Endpoints

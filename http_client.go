@@ -64,7 +64,7 @@ func NewHTTPClient(config *Config, rateLimiter *RateLimiter) *HTTPClient {
 		retryConfig: config.RetryConfig,
 		rateLimiter: rateLimiter,
 		baseURL:     "https://graph.threads.net",
-		userAgent:   "threads-go-client/1.0",
+		userAgent:   "threads-go/1.0.1",
 	}
 }
 
