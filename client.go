@@ -126,7 +126,7 @@ type Config struct {
 	BaseURL string
 
 	// UserAgent is the User-Agent header sent with requests (optional).
-	// Default: "threads-go/1.0.0". Customize this to identify your application.
+	// Default: "threads-go/<version>". Customize this to identify your application.
 	UserAgent string
 
 	// Debug enables debug mode with verbose logging (optional).
@@ -245,7 +245,7 @@ func NewConfig() *Config {
 			BackoffFactor: 2.0,
 		},
 		BaseURL:   "https://graph.threads.net",
-		UserAgent: "threads-go/1.0.1",
+		UserAgent: DefaultUserAgent,
 		Debug:     false,
 	}
 }
@@ -435,7 +435,7 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.UserAgent == "" {
-		c.UserAgent = "threads-go/1.0.1"
+		c.UserAgent = DefaultUserAgent
 	}
 }
 

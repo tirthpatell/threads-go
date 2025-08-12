@@ -29,9 +29,12 @@ const (
 	// Search constraints
 	MinSearchTimestamp = 1688540400 // Minimum timestamp for search queries (July 5, 2023)
 
+	// Library version
+	Version = "1.0.2"
+
 	// HTTP client defaults
 	DefaultHTTPTimeout = 30 * time.Second // Default HTTP request timeout
-	DefaultUserAgent   = "threads-go/1.0.1"
+	DefaultUserAgent   = "threads-go/" + Version
 )
 
 // API Endpoints
