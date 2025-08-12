@@ -352,6 +352,7 @@ type PollAttachment struct {
 // PollResult represents poll results and voting statistics when retrieving posts with polls.
 // Contains the poll options and their vote percentages. The ExpirationTimestamp
 // indicates when the poll closes (typically 24 hours after creation).
+// TotalVotes shows the total number of votes cast in the poll.
 type PollResult struct {
 	OptionA                string  `json:"option_a"`
 	OptionB                string  `json:"option_b"`
@@ -361,6 +362,7 @@ type PollResult struct {
 	OptionBVotesPercentage float64 `json:"option_b_votes_percentage"`
 	OptionCVotesPercentage float64 `json:"option_c_votes_percentage,omitempty"`
 	OptionDVotesPercentage float64 `json:"option_d_votes_percentage,omitempty"`
+	TotalVotes             int     `json:"total_votes"`
 	ExpirationTimestamp    Time    `json:"expiration_timestamp"`
 }
 
