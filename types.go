@@ -290,6 +290,7 @@ type RepliesOptions struct {
 type SearchOptions struct {
 	SearchType SearchType `json:"search_type,omitempty"`
 	SearchMode SearchMode `json:"search_mode,omitempty"`
+	MediaType  string     `json:"media_type,omitempty"` // Filter by media type: TEXT, IMAGE, or VIDEO
 	Limit      int        `json:"limit,omitempty"`
 	Since      int64      `json:"since,omitempty"` // Unix timestamp (must be >= 1688540400)
 	Until      int64      `json:"until,omitempty"` // Unix timestamp

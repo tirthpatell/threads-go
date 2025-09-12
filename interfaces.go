@@ -194,9 +194,6 @@ type LocationManager interface {
 type SearchProvider interface {
 	// KeywordSearch searches posts by keyword
 	KeywordSearch(ctx context.Context, query string, opts *SearchOptions) (*PostsResponse, error)
-
-	// TopicTagSearch searches posts by topic tag
-	TopicTagSearch(ctx context.Context, tag string, opts *SearchOptions) (*PostsResponse, error)
 }
 
 // RateLimitController manages rate limiting behavior

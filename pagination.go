@@ -232,7 +232,8 @@ func (s *SearchIterator) Next(ctx context.Context) (*PostsResponse, error) {
 	case "keyword":
 		response, err = s.client.KeywordSearch(ctx, s.query, &opts)
 	case "tag":
-		response, err = s.client.TopicTagSearch(ctx, s.query, &opts)
+		opts.SearchMode = SearchModeTag
+		response, err = s.client.KeywordSearch(ctx, s.query, &opts)
 	default:
 		return nil, fmt.Errorf("invalid search type: %s", s.searchType)
 	}
