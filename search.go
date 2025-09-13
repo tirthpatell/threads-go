@@ -83,4 +83,3 @@ func (c *Client) KeywordSearch(ctx context.Context, query string, opts *SearchOp
 
 	return &postsResp, nil
 }
-
