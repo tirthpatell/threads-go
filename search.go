@@ -32,6 +32,14 @@ func (c *Client) KeywordSearch(ctx context.Context, query string, opts *SearchOp
 		if opts.SearchMode != "" {
 			params.Set("search_mode", string(opts.SearchMode))
 		}
+		if opts.MediaType != "" {
+			// Validate media type
+			mediaType := strings.ToUpper(opts.MediaType)
+			if mediaType != MediaTypeText && mediaType != MediaTypeImage && mediaType != MediaTypeVideo {
+				return nil, NewValidationError(400, "Invalid media type", "Media type must be TEXT, IMAGE, or VIDEO", "media_type")
+			}
+			params.Set("media_type", mediaType)
+		}
 		if opts.Limit > 0 {
 			if opts.Limit > 100 {
 				return nil, NewValidationError(400, "Limit too large", "Maximum limit is 100 posts per request", "limit")
@@ -74,24 +82,4 @@ func (c *Client) KeywordSearch(ctx context.Context, query string, opts *SearchOp
 	}
 
 	return &postsResp, nil
-}
-
-// TopicTagSearch searches for public Threads media by topic tag
-func (c *Client) TopicTagSearch(ctx context.Context, tag string, opts *SearchOptions) (*PostsResponse, error) {
-	if strings.TrimSpace(tag) == "" {
-		return nil, NewValidationError(400, "Topic tag is required", "Cannot search without a topic tag", "tag")
-	}
-
-	// Validate topic tag format
-	if err := c.ValidateTopicTag(tag); err != nil {
-		return nil, err
-	}
-
-	// Set search mode to TAG for topic tag search
-	if opts == nil {
-		opts = &SearchOptions{}
-	}
-	opts.SearchMode = SearchModeTag
-
-	return c.KeywordSearch(ctx, tag, opts)
 }

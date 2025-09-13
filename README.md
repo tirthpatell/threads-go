@@ -146,8 +146,20 @@ insights, err := client.GetAccountInsights(ctx, threads.UserID("456"), []string{
 ### Search & Locations
 
 ```go
-// Search posts
+// Search posts by keyword
 results, err := client.KeywordSearch(ctx, "golang", &threads.SearchOptions{Limit: 25})
+
+// Search posts filtered by media type (new in v1.0.3)
+imageResults, err := client.KeywordSearch(ctx, "nature", &threads.SearchOptions{
+    MediaType: threads.MediaTypeImage,  // Filter for IMAGE posts only (TEXT, IMAGE, or VIDEO)
+    Limit: 25,
+})
+
+// Search posts by topic tag
+tagResults, err := client.KeywordSearch(ctx, "#technology", &threads.SearchOptions{
+    SearchMode: threads.SearchModeTag,
+    Limit: 25,
+})
 
 // Location search
 locations, err := client.SearchLocations(ctx, "New York", nil, nil)

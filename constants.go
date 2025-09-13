@@ -30,7 +30,7 @@ const (
 	MinSearchTimestamp = 1688540400 // Minimum timestamp for search queries (July 5, 2023)
 
 	// Library version
-	Version = "1.0.2"
+	Version = "1.0.3"
 
 	// HTTP client defaults
 	DefaultHTTPTimeout = 30 * time.Second // Default HTTP request timeout
