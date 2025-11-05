@@ -295,7 +295,9 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -316,7 +318,9 @@ func (c *Client) createImageContainer(ctx context.Context, content *ImagePostCon
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -337,7 +341,9 @@ func (c *Client) createVideoContainer(ctx context.Context, content *VideoPostCon
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -362,7 +368,9 @@ func (c *Client) createCarouselContainer(ctx context.Context, content *CarouselP
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -384,7 +392,9 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetTextAttachment(content.TextAttachment)
 
 	// Get user ID from token info
 	userID := c.getUserID()
