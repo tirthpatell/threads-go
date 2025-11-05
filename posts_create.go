@@ -275,7 +275,9 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetSpoiler(content.Spoiler).
+		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -296,7 +298,9 @@ func (c *Client) createImageContainer(ctx context.Context, content *ImagePostCon
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetSpoiler(content.Spoiler).
+		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -317,7 +321,9 @@ func (c *Client) createVideoContainer(ctx context.Context, content *VideoPostCon
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetSpoiler(content.Spoiler).
+		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -352,7 +358,9 @@ func (c *Client) createCarouselContainer(ctx context.Context, content *CarouselP
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetSpoiler(content.Spoiler).
+		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -374,7 +382,9 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetSpoiler(content.Spoiler).
+		SetTextAttachment(content.TextAttachment)
 
 	// Get user ID from token info
 	userID := c.getUserID()
@@ -606,4 +616,54 @@ func (c *Client) waitForContainerProcessing(ctx context.Context, containerID str
 
 	// This should never be reached due to the logic above, but just in case
 	return NewAPIError(408, "Video processing timeout", fmt.Sprintf("Container %s processing timed out after %d attempts", containerID, VideoProcessingMaxAttempts), "")
+}
+
+// GetContainerStatus retrieves the status of a media container
+// This is useful for checking if a video or image container has finished processing
+// before attempting to publish it. Returns container status information including:
+// - ID: The container ID
+// - Status: Current status (IN_PROGRESS, FINISHED, PUBLISHED, ERROR, EXPIRED)
+// - ErrorMessage: Error details if status is ERROR
+func (c *Client) GetContainerStatus(ctx context.Context, containerID ContainerID) (*ContainerStatus, error) {
+	if !containerID.Valid() {
+		return nil, NewValidationError(400, ErrEmptyContainerID, "Cannot check status without container ID", "container_id")
+	}
+
+	// Ensure we have a valid token
+	if err := c.EnsureValidToken(ctx); err != nil {
+		return nil, err
+	}
+
+	// Build request parameters with container status fields
+	params := url.Values{
+		"fields": {ContainerStatusFields},
+	}
+
+	// Make API call to get container status
+	path := fmt.Sprintf("/%s", containerID.String())
+	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get container status: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, c.handleAPIError(resp)
+	}
+
+	// Parse response
+	var status ContainerStatus
+	if err := safeJSONUnmarshal(resp.Body, &status, "container status response", resp.RequestID); err != nil {
+		return nil, err
+	}
+
+	// Validate response
+	if status.ID == "" {
+		return nil, NewAPIError(resp.StatusCode, "Container ID not returned", "API response missing container ID", resp.RequestID)
+	}
+
+	if status.Status == "" {
+		return nil, NewAPIError(resp.StatusCode, "Container status not returned", "API response missing container status", resp.RequestID)
+	}
+
+	return &status, nil
 }

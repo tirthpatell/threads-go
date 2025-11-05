@@ -155,6 +155,23 @@ func (b *ContainerBuilder) SetIsCarouselItem(isCarouselItem bool) *ContainerBuil
 	return b
 }
 
+// SetSpoiler marks content as containing spoilers (added October 2025)
+func (b *ContainerBuilder) SetSpoiler(spoiler bool) *ContainerBuilder {
+	if spoiler {
+		b.params.Set("spoiler", "true")
+	}
+	return b
+}
+
+// SetTextAttachment adds a text attachment to the post (added October 2025)
+// Allows up to 10,000 characters of additional text content
+func (b *ContainerBuilder) SetTextAttachment(textAttachment string) *ContainerBuilder {
+	if textAttachment != "" {
+		b.params.Set("text_attachment", textAttachment)
+	}
+	return b
+}
+
 // Build returns the built parameters
 func (b *ContainerBuilder) Build() url.Values {
 	return b.params

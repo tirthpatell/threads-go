@@ -131,6 +131,10 @@ type TextPostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular text posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// Spoiler marks content as containing spoilers (added October 2025)
+	Spoiler bool `json:"spoiler,omitempty"`
+	// TextAttachment allows adding longer text content (up to 10,000 characters, added October 2025)
+	TextAttachment string `json:"text_attachment,omitempty"`
 }
 
 // ImagePostContent represents content for image posts.
@@ -147,6 +151,10 @@ type ImagePostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular image posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// Spoiler marks content as containing spoilers (added October 2025)
+	Spoiler bool `json:"spoiler,omitempty"`
+	// TextAttachment allows adding longer text content (up to 10,000 characters, added October 2025)
+	TextAttachment string `json:"text_attachment,omitempty"`
 }
 
 // VideoPostContent represents content for video posts.
@@ -163,6 +171,10 @@ type VideoPostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular image posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// Spoiler marks content as containing spoilers (added October 2025)
+	Spoiler bool `json:"spoiler,omitempty"`
+	// TextAttachment allows adding longer text content (up to 10,000 characters, added October 2025)
+	TextAttachment string `json:"text_attachment,omitempty"`
 }
 
 // CarouselPostContent represents content for carousel posts.
@@ -178,6 +190,10 @@ type CarouselPostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular image posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// Spoiler marks content as containing spoilers (added October 2025)
+	Spoiler bool `json:"spoiler,omitempty"`
+	// TextAttachment allows adding longer text content (up to 10,000 characters, added October 2025)
+	TextAttachment string `json:"text_attachment,omitempty"`
 }
 
 // ReplyControl defines who can reply to a post
@@ -408,4 +424,12 @@ type ChildrenData struct {
 // ChildPost represents a child post in a carousel
 type ChildPost struct {
 	ID string `json:"id"`
+}
+
+// ContainerStatus represents the status of a media container
+// Used to check processing status before publishing posts
+type ContainerStatus struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error_message,omitempty"`
 }

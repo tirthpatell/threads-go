@@ -71,6 +71,9 @@ type PostCreator interface {
 
 	// CreateMediaContainer creates a media container for carousel items
 	CreateMediaContainer(ctx context.Context, mediaType, mediaURL, altText string) (ContainerID, error)
+
+	// GetContainerStatus retrieves the status of a media container
+	GetContainerStatus(ctx context.Context, containerID ContainerID) (*ContainerStatus, error)
 }
 
 // PostReader handles post retrieval operations
