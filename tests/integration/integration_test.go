@@ -472,7 +472,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			TextEntities: []threads.TextEntity{
 				{
 					EntityType: "SPOILER",
-					Offset:     16, // Start of "Darth Vader is Luke's father!"
+					Offset:     15, // Start of "Darth Vader is Luke's father!" (after "Spoiler alert: ")
 					Length:     30, // Length of spoiler text
 				},
 			},
@@ -575,8 +575,8 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			TextEntities: []threads.TextEntity{
 				{
 					EntityType: "SPOILER",
-					Offset:     9, // "This image reveals the ending"
-					Length:     31,
+					Offset:     9,  // Start of "This image reveals the ending!" (after "Spoiler: ")
+					Length:     30, // Length of "This image reveals the ending!"
 				},
 			},
 			IsSpoilerMedia: true,
