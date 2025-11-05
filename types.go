@@ -131,6 +131,13 @@ type TextPostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular text posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// TextEntities marks specific text ranges as spoilers
+	// Max 10 entities per post. Each entity specifies offset and length of spoiler text.
+	TextEntities []TextEntity `json:"text_entities,omitempty"`
+	// TextAttachment allows adding longer text content with styling
+	// Can only be used with TEXT-only posts (not with polls or other media types)
+	// Max 10,000 characters in plaintext field
+	TextAttachment *TextAttachment `json:"text_attachment,omitempty"`
 }
 
 // ImagePostContent represents content for image posts.
@@ -147,6 +154,11 @@ type ImagePostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular image posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// TextEntities marks specific text ranges as spoilers
+	// Max 10 entities per post. Each entity specifies offset and length of spoiler text.
+	TextEntities []TextEntity `json:"text_entities,omitempty"`
+	// IsSpoilerMedia marks the image as a spoiler
+	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
 }
 
 // VideoPostContent represents content for video posts.
@@ -163,6 +175,11 @@ type VideoPostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular image posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// TextEntities marks specific text ranges as spoilers
+	// Max 10 entities per post. Each entity specifies offset and length of spoiler text.
+	TextEntities []TextEntity `json:"text_entities,omitempty"`
+	// IsSpoilerMedia marks the video as a spoiler
+	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
 }
 
 // CarouselPostContent represents content for carousel posts.
@@ -178,6 +195,11 @@ type CarouselPostContent struct {
 	// QuotedPostID makes this a quote post when provided
 	// Leave empty for regular image posts
 	QuotedPostID string `json:"quoted_post_id,omitempty"`
+	// TextEntities marks specific text ranges as spoilers
+	// Max 10 entities per post. Each entity specifies offset and length of spoiler text.
+	TextEntities []TextEntity `json:"text_entities,omitempty"`
+	// IsSpoilerMedia marks ALL carousel media (images/videos) as spoilers
+	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
 }
 
 // ReplyControl defines who can reply to a post
@@ -408,4 +430,36 @@ type ChildrenData struct {
 // ChildPost represents a child post in a carousel
 type ChildPost struct {
 	ID string `json:"id"`
+}
+
+// ContainerStatus represents the status of a media container
+// Used to check processing status before publishing posts
+type ContainerStatus struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+// TextEntity represents a spoiler entity within text content
+// Used to mark specific ranges of text as spoilers using offset and length
+type TextEntity struct {
+	EntityType string `json:"entity_type"` // "SPOILER" or "spoiler"
+	Offset     int    `json:"offset"`      // Starting position of the spoiler (0-indexed)
+	Length     int    `json:"length"`      // Length of the spoiler text from offset
+}
+
+// TextAttachment represents a text attachment with optional styling
+// Text attachments allow up to 10,000 characters of long-form content
+// Can only be used with TEXT-only posts (not with polls or other media)
+type TextAttachment struct {
+	Plaintext           string            `json:"plaintext"`                        // Required: The text content (max 10K chars)
+	LinkAttachmentURL   string            `json:"link_attachment_url,omitempty"`    // Optional: URL to include
+	TextWithStylingInfo []TextStylingInfo `json:"text_with_styling_info,omitempty"` // Optional: Styling information
+}
+
+// TextStylingInfo represents styling to apply to a range of text in a text attachment
+type TextStylingInfo struct {
+	Offset      int      `json:"offset"`       // Starting position for styling (0-indexed)
+	Length      int      `json:"length"`       // Length of text to style from offset
+	StylingInfo []string `json:"styling_info"` // Array of styles: "bold", "italic", "highlight", "underline", "strikethrough"
 }
