@@ -21,10 +21,6 @@ const (
 	MinCarouselItems = 2  // Minimum items in a carousel
 	MaxCarouselItems = 20 // Maximum items in a carousel
 
-	// Video processing
-	VideoProcessingPollInterval = 10 * time.Second // How often to check video processing status
-	VideoProcessingMaxAttempts  = 30               // Maximum attempts to check video status
-
 	// Reply processing
 	ReplyPublishDelay = 10 * time.Second // Recommended delay before publishing reply
 
