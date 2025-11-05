@@ -10,7 +10,8 @@ import "time"
 const (
 	// Text limits
 	MaxTextLength           = 500   // Maximum characters for post text
-	MaxTextAttachmentLength = 10000 // Maximum characters for text attachment (added October 2025)
+	MaxTextAttachmentLength = 10000 // Maximum characters for text attachment plaintext (added October 2025)
+	MaxTextEntities         = 10    // Maximum text spoiler entities per post (added October 2025)
 
 	// Pagination limits
 	MaxPostsPerRequest = 100 // Maximum posts per API request

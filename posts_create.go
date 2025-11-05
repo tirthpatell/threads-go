@@ -276,7 +276,7 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
-		SetSpoiler(content.Spoiler).
+		SetTextEntities(content.TextEntities).
 		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
@@ -299,8 +299,8 @@ func (c *Client) createImageContainer(ctx context.Context, content *ImagePostCon
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
-		SetSpoiler(content.Spoiler).
-		SetTextAttachment(content.TextAttachment)
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -322,8 +322,8 @@ func (c *Client) createVideoContainer(ctx context.Context, content *VideoPostCon
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
-		SetSpoiler(content.Spoiler).
-		SetTextAttachment(content.TextAttachment)
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -359,8 +359,8 @@ func (c *Client) createCarouselContainer(ctx context.Context, content *CarouselP
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
-		SetSpoiler(content.Spoiler).
-		SetTextAttachment(content.TextAttachment)
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -383,7 +383,7 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
-		SetSpoiler(content.Spoiler).
+		SetTextEntities(content.TextEntities).
 		SetTextAttachment(content.TextAttachment)
 
 	// Get user ID from token info
