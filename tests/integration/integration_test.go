@@ -459,8 +459,8 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	})
 }
 
-// TestIntegration_October2025Features tests October 2025 API features (spoilers and text attachments)
-func TestIntegration_October2025Features(t *testing.T) {
+// TestIntegration_SpoilersAndTextAttachments tests spoilers and text attachments features
+func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 	skipIfNoCredentials(t)
 
 	client := createTestClient(t)
