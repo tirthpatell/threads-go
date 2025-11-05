@@ -36,6 +36,11 @@ func (c *Client) CreateTextPost(ctx context.Context, content *TextPostContent) (
 		return nil, fmt.Errorf("failed to create text container: %w", err)
 	}
 
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
+	}
+
 	// Publish the container
 	post, err := c.publishContainer(ctx, containerID)
 	if err != nil {
@@ -65,6 +70,11 @@ func (c *Client) CreateImagePost(ctx context.Context, content *ImagePostContent)
 	containerID, err := c.createImageContainer(ctx, content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create image container: %w", err)
+	}
+
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
 	}
 
 	// Publish the container
@@ -98,6 +108,11 @@ func (c *Client) CreateVideoPost(ctx context.Context, content *VideoPostContent)
 		return nil, fmt.Errorf("failed to create video container: %w", err)
 	}
 
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
+	}
+
 	// Publish the container
 	post, err := c.publishContainer(ctx, containerID)
 	if err != nil {
@@ -127,6 +142,11 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 	containerID, err := c.createCarouselContainer(ctx, content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create carousel container: %w", err)
+	}
+
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
 	}
 
 	// Publish the container
@@ -666,4 +686,38 @@ func (c *Client) GetContainerStatus(ctx context.Context, containerID ContainerID
 	}
 
 	return &status, nil
+}
+
+// waitForContainerReady polls the container status until it's ready to be published
+// Returns an error if the container fails or times out
+func (c *Client) waitForContainerReady(ctx context.Context, containerID ContainerID, maxAttempts int, pollInterval time.Duration) error {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		status, err := c.GetContainerStatus(ctx, containerID)
+		if err != nil {
+			return fmt.Errorf("failed to check container status: %w", err)
+		}
+
+		switch status.Status {
+		case ContainerStatusFinished:
+			// Container is ready to be published
+			return nil
+		case ContainerStatusError:
+			if status.ErrorMessage != "" {
+				return fmt.Errorf("container processing failed: %s", status.ErrorMessage)
+			}
+			return fmt.Errorf("container processing failed with error status")
+		case ContainerStatusExpired:
+			return fmt.Errorf("container expired before it could be published")
+		case ContainerStatusInProgress, ContainerStatusPublished:
+			// Still processing or already published, wait and retry
+			time.Sleep(pollInterval)
+			continue
+		default:
+			// Unknown status, wait and retry
+			time.Sleep(pollInterval)
+			continue
+		}
+	}
+
+	return fmt.Errorf("timeout waiting for container to be ready after %d attempts", maxAttempts)
 }

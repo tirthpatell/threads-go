@@ -72,6 +72,10 @@ const (
 	ContainerStatusPublished  = "PUBLISHED"
 	ContainerStatusError      = "ERROR"
 	ContainerStatusExpired    = "EXPIRED"
+
+	// Container polling configuration
+	DefaultContainerPollMaxAttempts = 30              // Maximum number of polling attempts
+	DefaultContainerPollInterval    = 1 * time.Second // Interval between polling attempts
 )
 
 // Media Types
