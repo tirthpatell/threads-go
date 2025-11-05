@@ -18,6 +18,11 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 		return err
 	}
 
+	// Validate text attachment length if present (10,000-character limit, added October 2025)
+	if err := validator.ValidateTextAttachmentLength(content.TextAttachment); err != nil {
+		return err
+	}
+
 	// Validate topic tag if present
 	if content.TopicTag != "" {
 		if err := validator.ValidateTopicTag(content.TopicTag); err != nil {
@@ -45,6 +50,11 @@ func (c *Client) ValidateImagePostContent(content *ImagePostContent) error {
 
 	// Validate text length if present (500-character limit)
 	if err := validator.ValidateTextLength(content.Text, "Text"); err != nil {
+		return err
+	}
+
+	// Validate text attachment length if present (10,000-character limit, added October 2025)
+	if err := validator.ValidateTextAttachmentLength(content.TextAttachment); err != nil {
 		return err
 	}
 
@@ -83,6 +93,11 @@ func (c *Client) ValidateVideoPostContent(content *VideoPostContent) error {
 		return err
 	}
 
+	// Validate text attachment length if present (10,000-character limit, added October 2025)
+	if err := validator.ValidateTextAttachmentLength(content.TextAttachment); err != nil {
+		return err
+	}
+
 	// Validate video URL
 	if err := validator.ValidateMediaURL(content.VideoURL, "video"); err != nil {
 		return err
@@ -115,6 +130,11 @@ func (c *Client) ValidateCarouselPostContent(content *CarouselPostContent) error
 
 	// Validate text length if present (500-character limit)
 	if err := validator.ValidateTextLength(content.Text, "Text"); err != nil {
+		return err
+	}
+
+	// Validate text attachment length if present (10,000-character limit, added October 2025)
+	if err := validator.ValidateTextAttachmentLength(content.TextAttachment); err != nil {
 		return err
 	}
 

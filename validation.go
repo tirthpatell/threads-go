@@ -32,6 +32,22 @@ func (v *Validator) ValidateTextLength(text string, fieldName string) error {
 	return nil
 }
 
+// ValidateTextAttachmentLength validates text attachment doesn't exceed maximum length
+// Text attachments can be up to 10,000 characters (added October 2025)
+func (v *Validator) ValidateTextAttachmentLength(textAttachment string) error {
+	if textAttachment == "" {
+		return nil // Empty text attachment is valid (optional)
+	}
+
+	if len(textAttachment) > MaxTextAttachmentLength {
+		return NewValidationError(400,
+			"Text attachment too long",
+			fmt.Sprintf("Text attachment is limited to %d characters (currently %d)", MaxTextAttachmentLength, len(textAttachment)),
+			"text_attachment")
+	}
+	return nil
+}
+
 // ValidateMediaURL validates media URLs for basic format and accessibility
 func (v *Validator) ValidateMediaURL(mediaURL, mediaType string) error {
 	if mediaURL == "" {
