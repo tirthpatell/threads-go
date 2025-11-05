@@ -473,7 +473,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 				{
 					EntityType: "SPOILER",
 					Offset:     15, // Start of "Darth Vader is Luke's father!" (after "Spoiler alert: ")
-					Length:     30, // Length of spoiler text
+					Length:     11, // Just cover "Darth Vader" for testing
 				},
 			},
 		}
