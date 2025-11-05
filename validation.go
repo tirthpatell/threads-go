@@ -71,7 +71,7 @@ func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) err
 			start1, end1 := stylingInfo[i].Offset, stylingInfo[i].Offset+stylingInfo[i].Length
 			start2, end2 := stylingInfo[j].Offset, stylingInfo[j].Offset+stylingInfo[j].Length
 
-			if (start1 < end2 && end1 > start2) {
+			if start1 < end2 && end1 > start2 {
 				return NewValidationError(400,
 					"Overlapping text styling ranges",
 					fmt.Sprintf("Text styling ranges cannot overlap: range %d [%d,%d) overlaps with range %d [%d,%d)",

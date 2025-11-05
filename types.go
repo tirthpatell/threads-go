@@ -452,9 +452,9 @@ type TextEntity struct {
 // Text attachments allow up to 10,000 characters of long-form content
 // Can only be used with TEXT-only posts (not with polls or other media)
 type TextAttachment struct {
-	Plaintext            string              `json:"plaintext"`                       // Required: The text content (max 10K chars)
-	LinkAttachmentURL    string              `json:"link_attachment_url,omitempty"`   // Optional: URL to include
-	TextWithStylingInfo  []TextStylingInfo   `json:"text_with_styling_info,omitempty"` // Optional: Styling information
+	Plaintext           string            `json:"plaintext"`                        // Required: The text content (max 10K chars)
+	LinkAttachmentURL   string            `json:"link_attachment_url,omitempty"`    // Optional: URL to include
+	TextWithStylingInfo []TextStylingInfo `json:"text_with_styling_info,omitempty"` // Optional: Styling information
 }
 
 // TextStylingInfo represents styling to apply to a range of text in a text attachment
