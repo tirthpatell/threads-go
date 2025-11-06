@@ -236,7 +236,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		// Clean up - delete the test post using public API
-		time.Sleep(2 * time.Second) // Wait a bit before deletion
+		time.Sleep(1 * time.Second) // Wait a bit before deletion
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
@@ -273,7 +273,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created image post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
 
 		// Clean up - delete the test post
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
@@ -312,7 +312,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created video post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
 
 		// Clean up - delete the test post
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete video post %s: %v", post.ID, err)
@@ -342,7 +342,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created second media container: %s", container2)
 
 		// Wait a moment for containers to be ready
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		// Create carousel post
 		content := &threads.CarouselPostContent{
@@ -367,7 +367,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created carousel post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
 
 		// Clean up - delete the test post
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete carousel post %s: %v", post.ID, err)
@@ -491,7 +491,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created post with text spoiler: ID=%s, Text=%s", post.ID, post.Text)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete spoiler post %s: %v", post.ID, err)
@@ -527,7 +527,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created post with multiple spoilers: ID=%s", post.ID)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete multi-spoiler post %s: %v", post.ID, err)
@@ -556,7 +556,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created image post with media spoiler: ID=%s", post.ID)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete image spoiler post %s: %v", post.ID, err)
@@ -591,7 +591,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created post with text and media spoilers: ID=%s", post.ID)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete combined spoiler post %s: %v", post.ID, err)
@@ -630,7 +630,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created post with text attachment: ID=%s", post.ID)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete text attachment post %s: %v", post.ID, err)
@@ -656,7 +656,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created post with text attachment and link: ID=%s", post.ID)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete text attachment link post %s: %v", post.ID, err)
@@ -681,7 +681,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			return
 		}
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		// Create carousel with all media marked as spoilers
 		content := &threads.CarouselPostContent{
@@ -699,7 +699,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 		t.Logf("Created carousel with spoiler media: ID=%s", post.ID)
 
 		// Clean up
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete carousel spoiler post %s: %v", post.ID, err)
