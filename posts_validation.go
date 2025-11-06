@@ -18,6 +18,35 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 		return err
 	}
 
+	// Validate text entities (spoilers) if present
+	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
+		return err
+	}
+
+	// Validate text attachment if present
+	if err := validator.ValidateTextAttachment(content.TextAttachment); err != nil {
+		return err
+	}
+
+	// Text attachment can only be used with TEXT-only posts
+	if content.TextAttachment != nil {
+		// Cannot be used with polls
+		if content.PollAttachment != nil {
+			return NewValidationError(400,
+				"Text attachment incompatible with poll",
+				"Text attachments cannot be used with polls",
+				"text_attachment")
+		}
+
+		// If main post has link_attachment, text attachment cannot have link_attachment_url
+		if content.LinkAttachment != "" && content.TextAttachment.LinkAttachmentURL != "" {
+			return NewValidationError(400,
+				"Duplicate link attachments",
+				"If the main post has a link_attachment, the text attachment cannot have a link_attachment_url",
+				"text_attachment.link_attachment_url")
+		}
+	}
+
 	// Validate topic tag if present
 	if content.TopicTag != "" {
 		if err := validator.ValidateTopicTag(content.TopicTag); err != nil {
@@ -45,6 +74,11 @@ func (c *Client) ValidateImagePostContent(content *ImagePostContent) error {
 
 	// Validate text length if present (500-character limit)
 	if err := validator.ValidateTextLength(content.Text, "Text"); err != nil {
+		return err
+	}
+
+	// Validate text entities (spoilers) if present
+	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
 		return err
 	}
 
@@ -83,6 +117,11 @@ func (c *Client) ValidateVideoPostContent(content *VideoPostContent) error {
 		return err
 	}
 
+	// Validate text entities (spoilers) if present
+	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
+		return err
+	}
+
 	// Validate video URL
 	if err := validator.ValidateMediaURL(content.VideoURL, "video"); err != nil {
 		return err
@@ -115,6 +154,11 @@ func (c *Client) ValidateCarouselPostContent(content *CarouselPostContent) error
 
 	// Validate text length if present (500-character limit)
 	if err := validator.ValidateTextLength(content.Text, "Text"); err != nil {
+		return err
+	}
+
+	// Validate text entities (spoilers) if present
+	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
 		return err
 	}
 

@@ -36,6 +36,11 @@ func (c *Client) CreateTextPost(ctx context.Context, content *TextPostContent) (
 		return nil, fmt.Errorf("failed to create text container: %w", err)
 	}
 
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
+	}
+
 	// Publish the container
 	post, err := c.publishContainer(ctx, containerID)
 	if err != nil {
@@ -65,6 +70,11 @@ func (c *Client) CreateImagePost(ctx context.Context, content *ImagePostContent)
 	containerID, err := c.createImageContainer(ctx, content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create image container: %w", err)
+	}
+
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
 	}
 
 	// Publish the container
@@ -98,6 +108,11 @@ func (c *Client) CreateVideoPost(ctx context.Context, content *VideoPostContent)
 		return nil, fmt.Errorf("failed to create video container: %w", err)
 	}
 
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
+	}
+
 	// Publish the container
 	post, err := c.publishContainer(ctx, containerID)
 	if err != nil {
@@ -127,6 +142,11 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 	containerID, err := c.createCarouselContainer(ctx, content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create carousel container: %w", err)
+	}
+
+	// Wait for container to be ready
+	if err := c.waitForContainerReady(ctx, ContainerID(containerID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+		return nil, fmt.Errorf("container not ready for publishing: %w", err)
 	}
 
 	// Publish the container
@@ -275,7 +295,9 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetTextAttachment(content.TextAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -296,7 +318,9 @@ func (c *Client) createImageContainer(ctx context.Context, content *ImagePostCon
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -317,7 +341,9 @@ func (c *Client) createVideoContainer(ctx context.Context, content *VideoPostCon
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -327,16 +353,6 @@ func (c *Client) createVideoContainer(ctx context.Context, content *VideoPostCon
 	containerID, err := c.createContainer(ctx, builder.Build())
 	if err != nil {
 		return "", err
-	}
-
-	// Videos need processing time - wait for container to be ready
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Video container created, waiting for processing", "container_id", containerID)
-	}
-
-	// Wait for video processing to complete
-	if err := c.waitForContainerProcessing(ctx, containerID); err != nil {
-		return "", fmt.Errorf("video processing failed: %w", err)
 	}
 
 	return containerID, nil
@@ -352,7 +368,9 @@ func (c *Client) createCarouselContainer(ctx context.Context, content *CarouselP
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetIsSpoilerMedia(content.IsSpoilerMedia)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -374,7 +392,9 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetReplyTo(content.ReplyTo).
 		SetTopicTag(content.TopicTag).
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
-		SetLocationID(content.LocationID)
+		SetLocationID(content.LocationID).
+		SetTextEntities(content.TextEntities).
+		SetTextAttachment(content.TextAttachment)
 
 	// Get user ID from token info
 	userID := c.getUserID()
@@ -488,122 +508,86 @@ func (c *Client) publishContainer(ctx context.Context, containerID string) (*Pos
 	return c.GetPost(ctx, ConvertToPostID(publishResp.ID))
 }
 
-// waitForContainerProcessing waits for a video container to finish processing
-func (c *Client) waitForContainerProcessing(ctx context.Context, containerID string) error {
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Waiting for video container processing", "container_id", containerID)
+// GetContainerStatus retrieves the status of a media container
+// This is useful for checking if a video or image container has finished processing
+// before attempting to publish it. Returns container status information including:
+// - ID: The container ID
+// - Status: Current status (IN_PROGRESS, FINISHED, PUBLISHED, ERROR, EXPIRED)
+// - ErrorMessage: Error details if status is ERROR
+func (c *Client) GetContainerStatus(ctx context.Context, containerID ContainerID) (*ContainerStatus, error) {
+	if !containerID.Valid() {
+		return nil, NewValidationError(400, ErrEmptyContainerID, "Cannot check status without container ID", "container_id")
 	}
 
-	for attempt := 1; attempt <= VideoProcessingMaxAttempts; attempt++ {
-		// Check for context cancellation
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	// Ensure we have a valid token
+	if err := c.EnsureValidToken(ctx); err != nil {
+		return nil, err
+	}
 
-		// Check container status
-		params := url.Values{
-			"fields": {ContainerStatusFields},
-		}
+	// Build request parameters with container status fields
+	params := url.Values{
+		"fields": {ContainerStatusFields},
+	}
 
-		path := fmt.Sprintf("/%s", containerID)
-		resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	// Make API call to get container status
+	path := fmt.Sprintf("/%s", containerID.String())
+	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get container status: %w", err)
+	}
 
+	if resp.StatusCode != 200 {
+		return nil, c.handleAPIError(resp)
+	}
+
+	// Parse response
+	var status ContainerStatus
+	if err := safeJSONUnmarshal(resp.Body, &status, "container status response", resp.RequestID); err != nil {
+		return nil, err
+	}
+
+	// Validate response
+	if status.ID == "" {
+		return nil, NewAPIError(resp.StatusCode, "Container ID not returned", "API response missing container ID", resp.RequestID)
+	}
+
+	if status.Status == "" {
+		return nil, NewAPIError(resp.StatusCode, "Container status not returned", "API response missing container status", resp.RequestID)
+	}
+
+	return &status, nil
+}
+
+// waitForContainerReady polls the container status until it's ready to be published
+// Returns an error if the container fails or times out
+func (c *Client) waitForContainerReady(ctx context.Context, containerID ContainerID, maxAttempts int, pollInterval time.Duration) error {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		status, err := c.GetContainerStatus(ctx, containerID)
 		if err != nil {
-			if c.config.Logger != nil {
-				c.config.Logger.Warn("Failed to check container status", "container_id", containerID, "attempt", attempt, "error", err.Error())
-			}
-
-			if attempt < VideoProcessingMaxAttempts {
-				time.Sleep(VideoProcessingPollInterval)
-				continue
-			}
-			return fmt.Errorf("container status check failed after %d attempts: %w", VideoProcessingMaxAttempts, err)
+			return fmt.Errorf("failed to check container status: %w", err)
 		}
 
-		if resp.StatusCode != 200 {
-			if c.config.Logger != nil {
-				c.config.Logger.Warn("Container status check returned non-200", "container_id", containerID, "status_code", resp.StatusCode, "attempt", attempt)
-			}
-
-			if attempt < VideoProcessingMaxAttempts {
-				time.Sleep(VideoProcessingPollInterval)
-				continue
-			}
-			return NewAPIError(resp.StatusCode, "Container status check failed", string(resp.Body), "")
-		}
-
-		// Parse response to check status
-		var statusResp struct {
-			ID           string `json:"id"`
-			Status       string `json:"status"`
-			ErrorMessage string `json:"error_message,omitempty"`
-		}
-
-		if err := json.Unmarshal(resp.Body, &statusResp); err != nil {
-			if c.config.Logger != nil {
-				c.config.Logger.Warn("Failed to parse container status response", "container_id", containerID, "attempt", attempt, "error", err.Error())
-			}
-
-			if attempt < VideoProcessingMaxAttempts {
-				time.Sleep(VideoProcessingPollInterval)
-				continue
-			}
-			return fmt.Errorf("failed to parse container status response: %w", err)
-		}
-
-		if c.config.Logger != nil {
-			c.config.Logger.Info("Container status check", "container_id", containerID, "status", statusResp.Status, "attempt", attempt)
-		}
-
-		// Check status
-		switch statusResp.Status {
+		switch status.Status {
 		case ContainerStatusFinished:
-			if c.config.Logger != nil {
-				c.config.Logger.Info("Video container processing completed", "container_id", containerID, "attempts", attempt)
-			}
+			// Container is ready to be published
 			return nil
-
-		case ContainerStatusPublished:
-			if c.config.Logger != nil {
-				c.config.Logger.Info("Video container already published", "container_id", containerID, "attempts", attempt)
-			}
-			return nil
-
-		case ContainerStatusInProgress:
-			if c.config.Logger != nil {
-				c.config.Logger.Info("Video container still processing", "container_id", containerID, "attempt", attempt)
-			}
-			if attempt < VideoProcessingMaxAttempts {
-				time.Sleep(VideoProcessingPollInterval)
-				continue
-			}
-			return NewAPIError(408, "Video processing timeout", fmt.Sprintf("Container %s is still processing after %d minutes", containerID, VideoProcessingMaxAttempts), "")
-
 		case ContainerStatusError:
-			errorMsg := "Unknown error"
-			if statusResp.ErrorMessage != "" {
-				errorMsg = statusResp.ErrorMessage
+			if status.ErrorMessage != "" {
+				return fmt.Errorf("container processing failed: %s", status.ErrorMessage)
 			}
-			return NewAPIError(500, "Video processing failed", fmt.Sprintf("Container %s failed to process: %s", containerID, errorMsg), "")
-
+			return fmt.Errorf("container processing failed with error status")
 		case ContainerStatusExpired:
-			return NewAPIError(410, "Container expired", fmt.Sprintf("Container %s was not published within 24 hours and has expired", containerID), "")
-
+			return fmt.Errorf("container expired before it could be published")
+		case ContainerStatusInProgress, ContainerStatusPublished:
+			// Still processing or already published, wait and retry
+			time.Sleep(pollInterval)
+			continue
 		default:
-			// Unknown status, continue waiting
-			if c.config.Logger != nil {
-				c.config.Logger.Warn("Unknown container status", "container_id", containerID, "status", statusResp.Status, "attempt", attempt)
-			}
-			if attempt < VideoProcessingMaxAttempts {
-				time.Sleep(VideoProcessingPollInterval)
-				continue
-			}
-			return NewAPIError(500, "Unknown container status", fmt.Sprintf("Container %s has unknown status: %s", containerID, statusResp.Status), "")
+			// Unknown status, wait and retry
+			time.Sleep(pollInterval)
+			continue
 		}
 	}
 
-	// This should never be reached due to the logic above, but just in case
-	return NewAPIError(408, "Video processing timeout", fmt.Sprintf("Container %s processing timed out after %d attempts", containerID, VideoProcessingMaxAttempts), "")
+	return fmt.Errorf("timeout waiting for container to be ready after %d attempts", maxAttempts)
 }

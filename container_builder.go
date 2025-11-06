@@ -155,6 +155,41 @@ func (b *ContainerBuilder) SetIsCarouselItem(isCarouselItem bool) *ContainerBuil
 	return b
 }
 
+// SetTextEntities adds text spoiler entities
+// Marks specific text ranges as spoilers using offset and length
+// Max 10 entities per post
+func (b *ContainerBuilder) SetTextEntities(entities []TextEntity) *ContainerBuilder {
+	if len(entities) > 0 {
+		entitiesJSON, err := json.Marshal(entities)
+		if err == nil {
+			b.params.Set("text_entities", string(entitiesJSON))
+		}
+	}
+	return b
+}
+
+// SetIsSpoilerMedia marks media (IMAGE, VIDEO, CAROUSEL) as spoilers
+// For CAROUSEL media type, this marks ALL media in the carousel as spoilers
+func (b *ContainerBuilder) SetIsSpoilerMedia(isSpoilerMedia bool) *ContainerBuilder {
+	if isSpoilerMedia {
+		b.params.Set("is_spoiler_media", "true")
+	}
+	return b
+}
+
+// SetTextAttachment adds a text attachment to the post
+// Can only be used with TEXT-only posts (not with polls or other media)
+// Max 10,000 characters in the plaintext field
+func (b *ContainerBuilder) SetTextAttachment(textAttachment *TextAttachment) *ContainerBuilder {
+	if textAttachment != nil {
+		attachmentJSON, err := json.Marshal(textAttachment)
+		if err == nil {
+			b.params.Set("text_attachment", string(attachmentJSON))
+		}
+	}
+	return b
+}
+
 // Build returns the built parameters
 func (b *ContainerBuilder) Build() url.Values {
 	return b.params

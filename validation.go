@@ -32,6 +32,105 @@ func (v *Validator) ValidateTextLength(text string, fieldName string) error {
 	return nil
 }
 
+// ValidateTextAttachment validates text attachment structure and content
+func (v *Validator) ValidateTextAttachment(textAttachment *TextAttachment) error {
+	if textAttachment == nil {
+		return nil // Text attachment is optional
+	}
+
+	// Validate plaintext length (required field, max 10K chars)
+	if textAttachment.Plaintext == "" {
+		return NewValidationError(400,
+			"Text attachment plaintext required",
+			"Text attachment must have a plaintext field",
+			"text_attachment.plaintext")
+	}
+
+	if len(textAttachment.Plaintext) > MaxTextAttachmentLength {
+		return NewValidationError(400,
+			"Text attachment plaintext too long",
+			fmt.Sprintf("Text attachment plaintext is limited to %d characters (currently %d)", MaxTextAttachmentLength, len(textAttachment.Plaintext)),
+			"text_attachment.plaintext")
+	}
+
+	// Validate text styling ranges don't overlap
+	if len(textAttachment.TextWithStylingInfo) > 0 {
+		if err := v.validateTextStylingRanges(textAttachment.TextWithStylingInfo); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateTextStylingRanges checks that text styling ranges don't overlap
+func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) error {
+	for i := 0; i < len(stylingInfo); i++ {
+		for j := i + 1; j < len(stylingInfo); j++ {
+			// Check if ranges overlap
+			start1, end1 := stylingInfo[i].Offset, stylingInfo[i].Offset+stylingInfo[i].Length
+			start2, end2 := stylingInfo[j].Offset, stylingInfo[j].Offset+stylingInfo[j].Length
+
+			if start1 < end2 && end1 > start2 {
+				return NewValidationError(400,
+					"Overlapping text styling ranges",
+					fmt.Sprintf("Text styling ranges cannot overlap: range %d [%d,%d) overlaps with range %d [%d,%d)",
+						i, start1, end1, j, start2, end2),
+					"text_attachment.text_with_styling_info")
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateTextEntities validates text spoiler entities
+func (v *Validator) ValidateTextEntities(entities []TextEntity) error {
+	if len(entities) == 0 {
+		return nil // Optional field
+	}
+
+	// Check max limit
+	if len(entities) > MaxTextEntities {
+		return NewValidationError(400,
+			"Too many text entities",
+			fmt.Sprintf("Maximum %d text spoiler entities allowed per post (currently %d)", MaxTextEntities, len(entities)),
+			"text_entities")
+	}
+
+	// Validate each entity
+	for i, entity := range entities {
+		if entity.EntityType == "" {
+			return NewValidationError(400,
+				"Text entity missing type",
+				fmt.Sprintf("Text entity at index %d must have an entity_type", i),
+				"text_entities")
+		}
+
+		if entity.EntityType != "SPOILER" && entity.EntityType != "spoiler" {
+			return NewValidationError(400,
+				"Invalid text entity type",
+				fmt.Sprintf("Text entity at index %d has invalid type '%s' (must be 'SPOILER' or 'spoiler')", i, entity.EntityType),
+				"text_entities")
+		}
+
+		if entity.Offset < 0 {
+			return NewValidationError(400,
+				"Invalid text entity offset",
+				fmt.Sprintf("Text entity at index %d has negative offset %d", i, entity.Offset),
+				"text_entities")
+		}
+
+		if entity.Length <= 0 {
+			return NewValidationError(400,
+				"Invalid text entity length",
+				fmt.Sprintf("Text entity at index %d has non-positive length %d", i, entity.Length),
+				"text_entities")
+		}
+	}
+
+	return nil
+}
+
 // ValidateMediaURL validates media URLs for basic format and accessibility
 func (v *Validator) ValidateMediaURL(mediaURL, mediaType string) error {
 	if mediaURL == "" {

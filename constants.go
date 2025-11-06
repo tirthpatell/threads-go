@@ -9,7 +9,9 @@ import "time"
 // API Limits
 const (
 	// Text limits
-	MaxTextLength = 500 // Maximum characters for post text
+	MaxTextLength           = 500   // Maximum characters for post text
+	MaxTextAttachmentLength = 10000 // Maximum characters for text attachment plaintext
+	MaxTextEntities         = 10    // Maximum text spoiler entities per post
 
 	// Pagination limits
 	MaxPostsPerRequest = 100 // Maximum posts per API request
@@ -18,10 +20,6 @@ const (
 	// Carousel limits
 	MinCarouselItems = 2  // Minimum items in a carousel
 	MaxCarouselItems = 20 // Maximum items in a carousel
-
-	// Video processing
-	VideoProcessingPollInterval = 10 * time.Second // How often to check video processing status
-	VideoProcessingMaxAttempts  = 30               // Maximum attempts to check video status
 
 	// Reply processing
 	ReplyPublishDelay = 10 * time.Second // Recommended delay before publishing reply
@@ -70,6 +68,10 @@ const (
 	ContainerStatusPublished  = "PUBLISHED"
 	ContainerStatusError      = "ERROR"
 	ContainerStatusExpired    = "EXPIRED"
+
+	// Container polling configuration
+	DefaultContainerPollMaxAttempts = 30              // Maximum number of polling attempts
+	DefaultContainerPollInterval    = 1 * time.Second // Interval between polling attempts
 )
 
 // Media Types

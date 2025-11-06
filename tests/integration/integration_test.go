@@ -236,7 +236,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		// Clean up - delete the test post using public API
-		time.Sleep(2 * time.Second) // Wait a bit before deletion
+		time.Sleep(1 * time.Second) // Wait a bit before deletion
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
@@ -273,7 +273,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created image post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
 
 		// Clean up - delete the test post
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
@@ -312,7 +312,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created video post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
 
 		// Clean up - delete the test post
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete video post %s: %v", post.ID, err)
@@ -342,7 +342,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created second media container: %s", container2)
 
 		// Wait a moment for containers to be ready
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		// Create carousel post
 		content := &threads.CarouselPostContent{
@@ -367,7 +367,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		t.Logf("Created carousel post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
 
 		// Clean up - delete the test post
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete carousel post %s: %v", post.ID, err)
@@ -456,6 +456,397 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		}
 
 		t.Logf("Empty text post error (expected): %v", err)
+	})
+}
+
+// TestIntegration_SpoilersAndTextAttachments tests spoilers and text attachments features
+func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	t.Run("TextPostWithSpoilers", func(t *testing.T) {
+		// Test text spoilers using text_entities
+		content := &threads.TextPostContent{
+			Text: "Spoiler alert: Darth Vader is Luke's father!",
+			TextEntities: []threads.TextEntity{
+				{
+					EntityType: "SPOILER",
+					Offset:     15, // Start of "Darth Vader is Luke's father!" (after "Spoiler alert: ")
+					Length:     11, // Just cover "Darth Vader" for testing
+				},
+			},
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with spoilers failed: %v", err)
+			return
+		}
+
+		if post.ID == "" {
+			t.Error("Created post should have an ID")
+		}
+
+		t.Logf("Created post with text spoiler: ID=%s, Text=%s", post.ID, post.Text)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete spoiler post %s: %v", post.ID, err)
+		} else {
+			t.Logf("Successfully deleted spoiler post %s", post.ID)
+		}
+	})
+
+	t.Run("TextPostWithMultipleSpoilers", func(t *testing.T) {
+		// Test multiple text spoilers
+		content := &threads.TextPostContent{
+			Text: "Two spoilers: Han dies and Rey is a Palpatine!",
+			TextEntities: []threads.TextEntity{
+				{
+					EntityType: "SPOILER",
+					Offset:     14, // "Han dies"
+					Length:     8,
+				},
+				{
+					EntityType: "SPOILER",
+					Offset:     27, // "Rey is a Palpatine"
+					Length:     18,
+				},
+			},
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with multiple spoilers failed: %v", err)
+			return
+		}
+
+		t.Logf("Created post with multiple spoilers: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete multi-spoiler post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("ImagePostWithMediaSpoiler", func(t *testing.T) {
+		if testImageURL1 == "" {
+			t.Skip("Skipping image spoiler test: THREADS_TEST_IMG1 not provided")
+		}
+
+		// Test media spoiler with image
+		content := &threads.ImagePostContent{
+			Text:           fmt.Sprintf("CI test image spoiler created at %s", time.Now().Format(time.RFC3339)),
+			ImageURL:       testImageURL1,
+			AltText:        "Spoiler image",
+			IsSpoilerMedia: true, // Mark the image as a spoiler
+		}
+
+		post, err := client.CreateImagePost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateImagePost with media spoiler failed: %v", err)
+			return
+		}
+
+		t.Logf("Created image post with media spoiler: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete image spoiler post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("ImagePostWithTextAndMediaSpoilers", func(t *testing.T) {
+		if testImageURL1 == "" {
+			t.Skip("Skipping combined spoiler test: THREADS_TEST_IMG1 not provided")
+		}
+
+		// Test both text and media spoilers
+		content := &threads.ImagePostContent{
+			Text:     "Spoiler: This image reveals the ending!",
+			ImageURL: testImageURL1,
+			TextEntities: []threads.TextEntity{
+				{
+					EntityType: "SPOILER",
+					Offset:     9,  // Start of "This image reveals the ending!" (after "Spoiler: ")
+					Length:     30, // Length of "This image reveals the ending!"
+				},
+			},
+			IsSpoilerMedia: true,
+		}
+
+		post, err := client.CreateImagePost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateImagePost with text and media spoilers failed: %v", err)
+			return
+		}
+
+		t.Logf("Created post with text and media spoilers: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete combined spoiler post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("TextPostWithTextAttachment", func(t *testing.T) {
+		// Test text attachment with styling
+		content := &threads.TextPostContent{
+			Text: fmt.Sprintf("CI test post with text attachment at %s", time.Now().Format(time.RFC3339)),
+			TextAttachment: &threads.TextAttachment{
+				Plaintext: "This is a long-form text attachment with up to 10,000 characters. " +
+					"It supports rich formatting and allows you to share detailed content beyond the 500 character limit. " +
+					"This is perfect for sharing articles, stories, or detailed explanations.",
+				TextWithStylingInfo: []threads.TextStylingInfo{
+					{
+						Offset:      0,
+						Length:      7, // "This is"
+						StylingInfo: []string{"bold"},
+					},
+					{
+						Offset:      10,
+						Length:      9, // "long-form"
+						StylingInfo: []string{"italic"},
+					},
+				},
+			},
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with text attachment failed: %v", err)
+			return
+		}
+
+		t.Logf("Created post with text attachment: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete text attachment post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("TextAttachmentWithLink", func(t *testing.T) {
+		// Test text attachment with link
+		content := &threads.TextPostContent{
+			Text: "Check out my detailed post with a link!",
+			TextAttachment: &threads.TextAttachment{
+				Plaintext:         "Here's a detailed explanation with additional information that couldn't fit in the main post. This text attachment includes a link for more details.",
+				LinkAttachmentURL: "https://example.com/more-info",
+			},
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with text attachment link failed: %v", err)
+			return
+		}
+
+		t.Logf("Created post with text attachment and link: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete text attachment link post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("CarouselWithMediaSpoiler", func(t *testing.T) {
+		if testImageURL1 == "" || testImageURL2 == "" {
+			t.Skip("Skipping carousel spoiler test: THREADS_TEST_IMG1 or THREADS_TEST_IMG2 not provided")
+		}
+
+		// Create media containers
+		container1, err := client.CreateMediaContainer(context.Background(), "IMAGE", testImageURL1, "First carousel image")
+		if err != nil {
+			t.Errorf("Failed to create first media container: %v", err)
+			return
+		}
+
+		container2, err := client.CreateMediaContainer(context.Background(), "IMAGE", testImageURL2, "Second carousel image")
+		if err != nil {
+			t.Errorf("Failed to create second media container: %v", err)
+			return
+		}
+
+		time.Sleep(1 * time.Second)
+
+		// Create carousel with all media marked as spoilers
+		content := &threads.CarouselPostContent{
+			Text:           fmt.Sprintf("CI test carousel with spoilers at %s", time.Now().Format(time.RFC3339)),
+			Children:       []string{string(container1), string(container2)},
+			IsSpoilerMedia: true, // Marks ALL carousel media as spoilers
+		}
+
+		post, err := client.CreateCarouselPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateCarouselPost with spoilers failed: %v", err)
+			return
+		}
+
+		t.Logf("Created carousel with spoiler media: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete carousel spoiler post %s: %v", post.ID, err)
+		}
+	})
+}
+
+// TestIntegration_ContainerStatus tests the GetContainerStatus method
+func TestIntegration_ContainerStatus(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	if testImageURL1 == "" {
+		t.Skip("Skipping container status test: THREADS_TEST_IMG1 not provided")
+	}
+
+	client := createTestClient(t)
+
+	t.Run("GetContainerStatus", func(t *testing.T) {
+		// Create a media container
+		containerID, err := client.CreateMediaContainer(context.Background(), "IMAGE", testImageURL1, "Test image for container status")
+		if err != nil {
+			t.Errorf("Failed to create media container: %v", err)
+			return
+		}
+
+		t.Logf("Created media container: %s", containerID)
+
+		// Get the container status
+		status, err := client.GetContainerStatus(context.Background(), containerID)
+		if err != nil {
+			t.Errorf("GetContainerStatus failed: %v", err)
+			return
+		}
+
+		if status.ID == "" {
+			t.Error("Container status should have an ID")
+		}
+
+		if status.Status == "" {
+			t.Error("Container status should have a status field")
+		}
+
+		t.Logf("Container status: ID=%s, Status=%s, ErrorMessage=%s",
+			status.ID, status.Status, status.ErrorMessage)
+
+		// Verify status is one of the valid values
+		validStatuses := map[string]bool{
+			"IN_PROGRESS": true,
+			"FINISHED":    true,
+			"PUBLISHED":   true,
+			"ERROR":       true,
+			"EXPIRED":     true,
+		}
+
+		if !validStatuses[status.Status] {
+			t.Errorf("Invalid container status: %s", status.Status)
+		}
+	})
+}
+
+// TestIntegration_ValidationErrors tests validation for new features
+func TestIntegration_ValidationErrors(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	t.Run("TooManyTextEntities", func(t *testing.T) {
+		// Try to create post with more than 10 text entities (should fail validation)
+		entities := make([]threads.TextEntity, 11)
+		for i := 0; i < 11; i++ {
+			entities[i] = threads.TextEntity{
+				EntityType: "SPOILER",
+				Offset:     i * 5,
+				Length:     3,
+			}
+		}
+
+		content := &threads.TextPostContent{
+			Text:         "This post has too many spoiler entities and should fail validation",
+			TextEntities: entities,
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for too many text entities")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("TextAttachmentWithPoll", func(t *testing.T) {
+		// Try to create post with both text attachment and poll (should fail validation)
+		content := &threads.TextPostContent{
+			Text: "This should fail validation",
+			PollAttachment: &threads.PollAttachment{
+				OptionA: "Option A",
+				OptionB: "Option B",
+			},
+			TextAttachment: &threads.TextAttachment{
+				Plaintext: "This should not be allowed with a poll",
+			},
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for text attachment with poll")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("InvalidTextEntityOffset", func(t *testing.T) {
+		// Try to create post with negative offset (should fail validation)
+		content := &threads.TextPostContent{
+			Text: "This should fail validation",
+			TextEntities: []threads.TextEntity{
+				{
+					EntityType: "SPOILER",
+					Offset:     -1, // Invalid negative offset
+					Length:     5,
+				},
+			},
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for negative offset")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("EmptyTextAttachmentPlaintext", func(t *testing.T) {
+		// Try to create post with empty text attachment plaintext (should fail validation)
+		content := &threads.TextPostContent{
+			Text: "This should fail validation",
+			TextAttachment: &threads.TextAttachment{
+				Plaintext: "", // Empty plaintext is not allowed
+			},
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for empty text attachment plaintext")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
 	})
 }
 
