@@ -850,6 +850,136 @@ func TestIntegration_ValidationErrors(t *testing.T) {
 	})
 }
 
+// TestIntegration_GIFPosts tests GIF attachment functionality
+func TestIntegration_GIFPosts(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	// Tenor GIF ID for testing
+	testTenorGIFID := "11366929630539488910"
+
+	t.Run("CreateAndDeleteGIFPost", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text: fmt.Sprintf("CI Integration test GIF post created at %s", time.Now().Format(time.RFC3339)),
+			GIFAttachment: &threads.GIFAttachment{
+				GIFID:    testTenorGIFID,
+				Provider: threads.GIFProviderTenor,
+			},
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with GIF attachment failed: %v", err)
+			return
+		}
+
+		if post.ID == "" {
+			t.Error("Created GIF post should have an ID")
+		}
+
+		t.Logf("Created GIF post: ID=%s, Text=%s", post.ID, post.Text)
+
+		// Verify the post has a GIF URL (if returned by API)
+		if post.GifURL != "" {
+			t.Logf("GIF URL: %s", post.GifURL)
+		}
+
+		// Clean up - delete the test post
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete GIF post %s: %v", post.ID, err)
+		} else {
+			t.Logf("Successfully deleted GIF post %s", post.ID)
+		}
+	})
+
+	t.Run("GIFPostWithReplyControl", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text:         fmt.Sprintf("CI test GIF post with reply control at %s", time.Now().Format(time.RFC3339)),
+			ReplyControl: threads.ReplyControlFollowersOnly,
+			GIFAttachment: &threads.GIFAttachment{
+				GIFID:    testTenorGIFID,
+				Provider: threads.GIFProviderTenor,
+			},
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with GIF and reply control failed: %v", err)
+			return
+		}
+
+		t.Logf("Created GIF post with reply control: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete GIF post %s: %v", post.ID, err)
+		}
+	})
+}
+
+// TestIntegration_GIFValidationErrors tests validation errors for GIF attachments
+func TestIntegration_GIFValidationErrors(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	t.Run("EmptyGIFID", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text: "This should fail validation - empty GIF ID",
+			GIFAttachment: &threads.GIFAttachment{
+				GIFID:    "",
+				Provider: threads.GIFProviderTenor,
+			},
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for empty GIF ID")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("EmptyGIFProvider", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text: "This should fail validation - empty provider",
+			GIFAttachment: &threads.GIFAttachment{
+				GIFID:    "11366929630539488910",
+				Provider: "",
+			},
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for empty GIF provider")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("InvalidGIFProvider", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text: "This should fail validation - invalid provider",
+			GIFAttachment: &threads.GIFAttachment{
+				GIFID:    "11366929630539488910",
+				Provider: threads.GIFProvider("GIPHY"), // Invalid provider
+			},
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for invalid GIF provider")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+}
+
 // Helper functions
 
 // truncateString truncates strings for logging
