@@ -138,6 +138,10 @@ type TextPostContent struct {
 	// Can only be used with TEXT-only posts (not with polls or other media types)
 	// Max 10,000 characters in plaintext field
 	TextAttachment *TextAttachment `json:"text_attachment,omitempty"`
+	// GIFAttachment allows attaching a GIF to the text post
+	// Can only be used with TEXT-only posts (not with image, video, or carousel posts)
+	// Tenor is currently the only available GIF provider
+	GIFAttachment *GIFAttachment `json:"gif_attachment,omitempty"`
 }
 
 // ImagePostContent represents content for image posts.
@@ -462,4 +466,22 @@ type TextStylingInfo struct {
 	Offset      int      `json:"offset"`       // Starting position for styling (0-indexed)
 	Length      int      `json:"length"`       // Length of text to style from offset
 	StylingInfo []string `json:"styling_info"` // Array of styles: "bold", "italic", "highlight", "underline", "strikethrough"
+}
+
+// GIFProvider represents supported GIF providers
+type GIFProvider string
+
+const (
+	// GIFProviderTenor is the Tenor GIF provider (currently the only supported provider)
+	GIFProviderTenor GIFProvider = "TENOR"
+)
+
+// GIFAttachment represents a GIF attachment for text posts
+// GIFs can only be attached to text-only posts (not image, video, or carousel posts)
+// Tenor is currently the only available GIF provider
+type GIFAttachment struct {
+	// GIFID is the ID of the GIF from the provider (e.g., Tenor API response id field)
+	GIFID string `json:"gif_id"`
+	// Provider is the GIF provider (currently only "TENOR" is supported)
+	Provider GIFProvider `json:"provider"`
 }

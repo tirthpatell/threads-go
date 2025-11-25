@@ -264,6 +264,39 @@ func (v *Validator) ValidateSearchOptions(opts *SearchOptions) error {
 	return nil
 }
 
+// ValidateGIFAttachment validates GIF attachment structure and content
+func (v *Validator) ValidateGIFAttachment(gifAttachment *GIFAttachment) error {
+	if gifAttachment == nil {
+		return nil // GIF attachment is optional
+	}
+
+	// Validate GIF ID is provided
+	if strings.TrimSpace(gifAttachment.GIFID) == "" {
+		return NewValidationError(400,
+			"GIF ID required",
+			"GIF attachment must have a gif_id field",
+			"gif_attachment.gif_id")
+	}
+
+	// Validate provider is provided and valid
+	if gifAttachment.Provider == "" {
+		return NewValidationError(400,
+			"GIF provider required",
+			"GIF attachment must have a provider field",
+			"gif_attachment.provider")
+	}
+
+	// Currently only TENOR is supported
+	if gifAttachment.Provider != GIFProviderTenor {
+		return NewValidationError(400,
+			"Invalid GIF provider",
+			fmt.Sprintf("GIF provider '%s' is not supported. Currently only 'TENOR' is supported", gifAttachment.Provider),
+			"gif_attachment.provider")
+	}
+
+	return nil
+}
+
 // ConfigValidator validates client configuration
 type ConfigValidator struct{}
 

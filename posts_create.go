@@ -297,7 +297,8 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
-		SetTextAttachment(content.TextAttachment)
+		SetTextAttachment(content.TextAttachment).
+		SetGIFAttachment(content.GIFAttachment)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -394,7 +395,8 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
-		SetTextAttachment(content.TextAttachment)
+		SetTextAttachment(content.TextAttachment).
+		SetGIFAttachment(content.GIFAttachment)
 
 	// Get user ID from token info
 	userID := c.getUserID()

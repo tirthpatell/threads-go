@@ -219,3 +219,148 @@ func TestContainerBuilder(t *testing.T) {
 		t.Errorf("Expected reply_control to be %s, got %s", string(ReplyControlEveryone), params.Get("reply_control"))
 	}
 }
+
+func TestContainerBuilderGIFAttachment(t *testing.T) {
+	builder := NewContainerBuilder()
+
+	gif := &GIFAttachment{
+		GIFID:    "test-gif-id-12345",
+		Provider: GIFProviderTenor,
+	}
+
+	params := builder.
+		SetMediaType(MediaTypeText).
+		SetText("Check out this GIF!").
+		SetGIFAttachment(gif).
+		Build()
+
+	if params.Get("media_type") != MediaTypeText {
+		t.Errorf("Expected media_type to be %s, got %s", MediaTypeText, params.Get("media_type"))
+	}
+
+	gifParam := params.Get("gif_attachment")
+	if gifParam == "" {
+		t.Error("Expected gif_attachment to be set")
+	}
+
+	// Check that the GIF attachment contains expected values
+	if gifParam == "" {
+		t.Error("Expected gif_attachment parameter to be set")
+	}
+}
+
+func TestContainerBuilderGIFAttachmentNil(t *testing.T) {
+	builder := NewContainerBuilder()
+
+	params := builder.
+		SetMediaType(MediaTypeText).
+		SetText("No GIF here").
+		SetGIFAttachment(nil).
+		Build()
+
+	if params.Get("gif_attachment") != "" {
+		t.Error("Expected gif_attachment to be empty when nil")
+	}
+}
+
+func TestValidateGIFAttachment(t *testing.T) {
+	validator := NewValidator()
+
+	tests := []struct {
+		name      string
+		gif       *GIFAttachment
+		shouldErr bool
+		errField  string
+	}{
+		{
+			name:      "nil gif attachment is valid",
+			gif:       nil,
+			shouldErr: false,
+		},
+		{
+			name: "valid gif attachment",
+			gif: &GIFAttachment{
+				GIFID:    "test-gif-id",
+				Provider: GIFProviderTenor,
+			},
+			shouldErr: false,
+		},
+		{
+			name: "missing gif_id",
+			gif: &GIFAttachment{
+				GIFID:    "",
+				Provider: GIFProviderTenor,
+			},
+			shouldErr: true,
+			errField:  "gif_attachment.gif_id",
+		},
+		{
+			name: "whitespace only gif_id",
+			gif: &GIFAttachment{
+				GIFID:    "   ",
+				Provider: GIFProviderTenor,
+			},
+			shouldErr: true,
+			errField:  "gif_attachment.gif_id",
+		},
+		{
+			name: "missing provider",
+			gif: &GIFAttachment{
+				GIFID:    "test-gif-id",
+				Provider: "",
+			},
+			shouldErr: true,
+			errField:  "gif_attachment.provider",
+		},
+		{
+			name: "invalid provider",
+			gif: &GIFAttachment{
+				GIFID:    "test-gif-id",
+				Provider: GIFProvider("GIPHY"),
+			},
+			shouldErr: true,
+			errField:  "gif_attachment.provider",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateGIFAttachment(tt.gif)
+			if tt.shouldErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				} else if validationErr, ok := err.(*ValidationError); ok {
+					if tt.errField != "" && validationErr.Field != tt.errField {
+						t.Errorf("Expected error field '%s', got '%s'", tt.errField, validationErr.Field)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error but got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestGIFProviderConstants(t *testing.T) {
+	// Verify the TENOR constant is correctly defined
+	if GIFProviderTenor != "TENOR" {
+		t.Errorf("Expected GIFProviderTenor to be 'TENOR', got '%s'", GIFProviderTenor)
+	}
+}
+
+func TestGIFAttachmentStruct(t *testing.T) {
+	gif := &GIFAttachment{
+		GIFID:    "12345-tenor-gif",
+		Provider: GIFProviderTenor,
+	}
+
+	if gif.GIFID != "12345-tenor-gif" {
+		t.Errorf("Expected GIFID to be '12345-tenor-gif', got '%s'", gif.GIFID)
+	}
+
+	if gif.Provider != GIFProviderTenor {
+		t.Errorf("Expected Provider to be GIFProviderTenor, got '%s'", gif.Provider)
+	}
+}

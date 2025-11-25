@@ -28,6 +28,11 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 		return err
 	}
 
+	// Validate GIF attachment if present
+	if err := validator.ValidateGIFAttachment(content.GIFAttachment); err != nil {
+		return err
+	}
+
 	// Text attachment can only be used with TEXT-only posts
 	if content.TextAttachment != nil {
 		// Cannot be used with polls

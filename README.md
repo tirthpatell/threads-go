@@ -149,7 +149,7 @@ insights, err := client.GetAccountInsights(ctx, threads.UserID("456"), []string{
 // Search posts by keyword
 results, err := client.KeywordSearch(ctx, "golang", &threads.SearchOptions{Limit: 25})
 
-// Search posts filtered by media type (new in v1.0.3)
+// Search posts filtered by media type
 imageResults, err := client.KeywordSearch(ctx, "nature", &threads.SearchOptions{
     MediaType: threads.MediaTypeImage,  // Filter for IMAGE posts only (TEXT, IMAGE, or VIDEO)
     Limit: 25,

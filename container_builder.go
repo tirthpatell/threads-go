@@ -190,6 +190,19 @@ func (b *ContainerBuilder) SetTextAttachment(textAttachment *TextAttachment) *Co
 	return b
 }
 
+// SetGIFAttachment adds a GIF attachment to the post
+// Can only be used with TEXT-only posts (not with image, video, or carousel posts)
+// Tenor is currently the only available GIF provider
+func (b *ContainerBuilder) SetGIFAttachment(gifAttachment *GIFAttachment) *ContainerBuilder {
+	if gifAttachment != nil {
+		attachmentJSON, err := json.Marshal(gifAttachment)
+		if err == nil {
+			b.params.Set("gif_attachment", string(attachmentJSON))
+		}
+	}
+	return b
+}
+
 // Build returns the built parameters
 func (b *ContainerBuilder) Build() url.Values {
 	return b.params
