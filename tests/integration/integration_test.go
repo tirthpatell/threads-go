@@ -760,6 +760,34 @@ func TestIntegration_ContainerStatus(t *testing.T) {
 	})
 }
 
+// TestIntegration_GhostPosts tests ghost post functionality
+func TestIntegration_GhostPosts(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	t.Run("GetUserGhostPosts", func(t *testing.T) {
+		// Just test the endpoint call, we might not have any ghost posts
+		posts, err := client.GetUserGhostPosts(context.Background(), threads.ConvertToUserID(testUserID), &threads.PaginationOptions{
+			Limit: 5,
+		})
+
+		if err != nil {
+			t.Errorf("GetUserGhostPosts failed: %v", err)
+			return
+		}
+
+		t.Logf("Retrieved %d ghost posts", len(posts.Data))
+
+		for i, post := range posts.Data {
+			if post.ID == "" {
+				t.Errorf("Ghost post %d has empty ID", i)
+			}
+			t.Logf("Ghost Post %d: ID=%s, Status=%s, Expires=%v", i, post.ID, post.GhostPostStatus, post.GhostPostExpirationTimestamp)
+		}
+	})
+}
+
 // TestIntegration_ValidationErrors tests validation for new features
 func TestIntegration_ValidationErrors(t *testing.T) {
 	skipIfNoCredentials(t)
@@ -844,6 +872,22 @@ func TestIntegration_ValidationErrors(t *testing.T) {
 		_, err := client.CreateTextPost(context.Background(), content)
 		if err == nil {
 			t.Error("Expected validation error for empty text attachment plaintext")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("GhostPostAsReply", func(t *testing.T) {
+		// Try to create ghost post as a reply (should fail validation)
+		content := &threads.TextPostContent{
+			Text:        "This should fail validation",
+			IsGhostPost: true,
+			ReplyTo:     "some_post_id",
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for ghost post as reply")
 		} else {
 			t.Logf("Validation error (expected): %v", err)
 		}

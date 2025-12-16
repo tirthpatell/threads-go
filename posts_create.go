@@ -298,7 +298,8 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
 		SetTextAttachment(content.TextAttachment).
-		SetGIFAttachment(content.GIFAttachment)
+		SetGIFAttachment(content.GIFAttachment).
+		SetIsGhostPost(content.IsGhostPost)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -396,7 +397,8 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
 		SetTextAttachment(content.TextAttachment).
-		SetGIFAttachment(content.GIFAttachment)
+		SetGIFAttachment(content.GIFAttachment).
+		SetIsGhostPost(content.IsGhostPost)
 
 	// Get user ID from token info
 	userID := c.getUserID()

@@ -247,3 +247,64 @@ func (c *Client) GetPublishingLimits(ctx context.Context) (*PublishingLimits, er
 
 	return &limitsResp.Data[0], nil
 }
+
+// GetUserGhostPosts retrieves ghost posts from a specific user.
+// Ghost posts are text-only posts that expire after 24 hours.
+func (c *Client) GetUserGhostPosts(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error) {
+	if !userID.Valid() {
+		return nil, NewValidationError(400, ErrEmptyUserID, "Cannot retrieve ghost posts without user ID", "user_id")
+	}
+
+	// Ensure we have a valid token
+	if err := c.EnsureValidToken(ctx); err != nil {
+		return nil, err
+	}
+
+	// Validate pagination options
+	validator := NewValidator()
+	if err := validator.ValidatePaginationOptions(opts); err != nil {
+		return nil, err
+	}
+
+	// Build query parameters with ghost post fields
+	params := url.Values{
+		"fields": {GhostPostFields},
+	}
+
+	// Add pagination options if provided
+	if opts != nil {
+		if opts.Limit > 0 {
+			params.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		}
+		if opts.Before != "" {
+			params.Set("before", opts.Before)
+		}
+		if opts.After != "" {
+			params.Set("after", opts.After)
+		}
+	}
+
+	// Make API call to get ghost posts
+	path := fmt.Sprintf("/%s/ghost_posts", userID.String())
+	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle specific error cases
+	if resp.StatusCode == 404 {
+		return nil, NewValidationError(404, "User not found", fmt.Sprintf("User with ID %s does not exist or is not accessible", userID.String()), "user_id")
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, c.handleAPIError(resp)
+	}
+
+	// Parse response
+	var postsResp PostsResponse
+	if err := safeJSONUnmarshal(resp.Body, &postsResp, "ghost posts response", resp.RequestID); err != nil {
+		return nil, err
+	}
+
+	return &postsResp, nil
+}

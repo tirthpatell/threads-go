@@ -2,6 +2,7 @@ package threads
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -29,6 +30,44 @@ func (v *Validator) ValidateTextLength(text string, fieldName string) error {
 			fmt.Sprintf("%s is limited to %d characters", fieldName, MaxTextLength),
 			strings.ToLower(fieldName))
 	}
+	return nil
+}
+
+// ValidateLinkCount validates that the text does not contain more than the allowed number of links
+func (v *Validator) ValidateLinkCount(text string, linkAttachmentURL string) error {
+	// Map to track unique URLs
+	uniqueURLs := make(map[string]bool)
+
+	// Helper to normalize URLs for uniqueness check
+	// This is a simple normalization (trim spaces/slashes).
+	normalize := func(u string) string {
+		u = strings.TrimSpace(u)
+		return strings.TrimRight(u, "/")
+	}
+
+	// 1. Extract URLs from text
+	// This regex captures http:// or https:// followed by non-whitespace characters
+	if text != "" {
+		re := regexp.MustCompile(`https?://[^\s]+`)
+		matches := re.FindAllString(text, -1)
+		for _, match := range matches {
+			uniqueURLs[normalize(match)] = true
+		}
+	}
+
+	// 2. Add link_attachment if present
+	if linkAttachmentURL != "" {
+		uniqueURLs[normalize(linkAttachmentURL)] = true
+	}
+
+	// 3. Check count
+	if len(uniqueURLs) > MaxLinks {
+		return NewValidationError(400,
+			"Too many links",
+			fmt.Sprintf("Post cannot contain more than %d unique links (found %d)", MaxLinks, len(uniqueURLs)),
+			"text")
+	}
+
 	return nil
 }
 
