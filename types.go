@@ -45,36 +45,36 @@ func (t *Time) MarshalJSON() ([]byte, error) {
 // This is the primary data structure returned by most post-related API operations.
 // Posts can contain text, images, videos, carousels, or be quote/reply posts.
 type Post struct {
-	ID                string        `json:"id"`
-	Text              string        `json:"text,omitempty"`
-	MediaType         string        `json:"media_type,omitempty"`
-	MediaURL          string        `json:"media_url,omitempty"`
-	Permalink         string        `json:"permalink"`
-	Timestamp         Time          `json:"timestamp"`
-	Username          string        `json:"username"`
-	Owner             *PostOwner    `json:"owner,omitempty"`
-	IsReply           bool          `json:"is_reply"`
-	ReplyTo           string        `json:"reply_to,omitempty"`
-	MediaProductType  string        `json:"media_product_type"`
-	Shortcode         string        `json:"shortcode,omitempty"`
-	ThumbnailURL      string        `json:"thumbnail_url,omitempty"`
-	AltText           string        `json:"alt_text,omitempty"`
-	Children          *ChildrenData `json:"children,omitempty"`
-	IsQuotePost       bool          `json:"is_quote_post,omitempty"`
-	LinkAttachmentURL string        `json:"link_attachment_url,omitempty"`
-	HasReplies        bool          `json:"has_replies,omitempty"`
-	ReplyAudience     string        `json:"reply_audience,omitempty"`
-	QuotedPost        *Post         `json:"quoted_post,omitempty"`
-	RepostedPost      *Post         `json:"reposted_post,omitempty"`
-	GifURL            string        `json:"gif_url,omitempty"`
-	PollAttachment    *PollResult   `json:"poll_attachment,omitempty"`
-	RootPost          *Post         `json:"root_post,omitempty"`
-	RepliedTo         *Post         `json:"replied_to,omitempty"`
-	IsReplyOwnedByMe  bool          `json:"is_reply_owned_by_me,omitempty"`
-	HideStatus        string        `json:"hide_status,omitempty"`
-	TopicTag          string        `json:"topic_tag,omitempty"`
-	GhostPostStatus   string        `json:"ghost_post_status,omitempty"`
-	GhostPostExpirationTimestamp Time `json:"ghost_post_expiration_timestamp,omitempty"`
+	ID                           string        `json:"id"`
+	Text                         string        `json:"text,omitempty"`
+	MediaType                    string        `json:"media_type,omitempty"`
+	MediaURL                     string        `json:"media_url,omitempty"`
+	Permalink                    string        `json:"permalink"`
+	Timestamp                    Time          `json:"timestamp"`
+	Username                     string        `json:"username"`
+	Owner                        *PostOwner    `json:"owner,omitempty"`
+	IsReply                      bool          `json:"is_reply"`
+	ReplyTo                      string        `json:"reply_to,omitempty"`
+	MediaProductType             string        `json:"media_product_type"`
+	Shortcode                    string        `json:"shortcode,omitempty"`
+	ThumbnailURL                 string        `json:"thumbnail_url,omitempty"`
+	AltText                      string        `json:"alt_text,omitempty"`
+	Children                     *ChildrenData `json:"children,omitempty"`
+	IsQuotePost                  bool          `json:"is_quote_post,omitempty"`
+	LinkAttachmentURL            string        `json:"link_attachment_url,omitempty"`
+	HasReplies                   bool          `json:"has_replies,omitempty"`
+	ReplyAudience                string        `json:"reply_audience,omitempty"`
+	QuotedPost                   *Post         `json:"quoted_post,omitempty"`
+	RepostedPost                 *Post         `json:"reposted_post,omitempty"`
+	GifURL                       string        `json:"gif_url,omitempty"`
+	PollAttachment               *PollResult   `json:"poll_attachment,omitempty"`
+	RootPost                     *Post         `json:"root_post,omitempty"`
+	RepliedTo                    *Post         `json:"replied_to,omitempty"`
+	IsReplyOwnedByMe             bool          `json:"is_reply_owned_by_me,omitempty"`
+	HideStatus                   string        `json:"hide_status,omitempty"`
+	TopicTag                     string        `json:"topic_tag,omitempty"`
+	GhostPostStatus              string        `json:"ghost_post_status,omitempty"`
+	GhostPostExpirationTimestamp Time          `json:"ghost_post_expiration_timestamp,omitempty"`
 }
 
 // User represents a Threads user profile with app-scoped data.
