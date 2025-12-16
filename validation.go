@@ -2,6 +2,7 @@ package threads
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -29,6 +30,57 @@ func (v *Validator) ValidateTextLength(text string, fieldName string) error {
 			fmt.Sprintf("%s is limited to %d characters", fieldName, MaxTextLength),
 			strings.ToLower(fieldName))
 	}
+	return nil
+}
+
+// ValidateLinkCount validates that the text does not contain more than the allowed number of links
+func (v *Validator) ValidateLinkCount(text string, linkAttachmentURL string) error {
+	// Map to track unique URLs
+	uniqueURLs := make(map[string]bool)
+
+	// Helper to normalize URLs for uniqueness check
+	// This is a simple normalization (trim spaces/slashes).
+	// We might need more robust normalization if "www.example.com" and "http://www.example.com"
+	// should be treated as same or different. The docs examples use "www." prefix but
+	// strictly speaking, different protocols or subdomains might make them different.
+	// Based on docs "If the link_attachment field contains a URL that is different from all URLs in the text field"
+	// and "If the text field contains www.facebook.com, and the link_attachment is also www.facebook.com"
+	// it implies strict string equality after some basic cleanup.
+	normalize := func(u string) string {
+		u = strings.TrimSpace(u)
+		// Try to parse to handle protocol differences if needed, but for now
+		// let's rely on string extraction and basic cleanup.
+		// If the text contains "www.facebook.com" and we extract "http://www.facebook.com", they differ.
+		// The regex below extracts protocols. If the user types "www.facebook.com" without protocol,
+		// it might be auto-linked by the platform, but the regex `https?://` won't catch it.
+		// However, API usually requires valid URLs.
+		// Let's assume standard http/https URLs for now.
+		return strings.TrimRight(u, "/")
+	}
+
+	// 1. Extract URLs from text
+	// This regex captures http:// or https:// followed by non-whitespace characters
+	if text != "" {
+		re := regexp.MustCompile(`https?://[^\s]+`)
+		matches := re.FindAllString(text, -1)
+		for _, match := range matches {
+			uniqueURLs[normalize(match)] = true
+		}
+	}
+
+	// 2. Add link_attachment if present
+	if linkAttachmentURL != "" {
+		uniqueURLs[normalize(linkAttachmentURL)] = true
+	}
+
+	// 3. Check count
+	if len(uniqueURLs) > MaxLinks {
+		return NewValidationError(400,
+			"Too many links",
+			fmt.Sprintf("Post cannot contain more than %d unique links (found %d)", MaxLinks, len(uniqueURLs)),
+			"text")
+	}
+
 	return nil
 }
 

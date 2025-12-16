@@ -170,6 +170,54 @@ func TestValidation(t *testing.T) {
 			t.Error("Expected error for country code with numbers")
 		}
 	})
+
+	t.Run("ValidateLinkCount", func(t *testing.T) {
+		// Test valid link count (0 links)
+		err := validator.ValidateLinkCount("Hello world", "")
+		if err != nil {
+			t.Errorf("Expected no error for 0 links, got: %v", err)
+		}
+
+		// Test valid link count (5 links)
+		fiveLinks := "http://a.com https://b.com http://c.com https://d.com http://e.com"
+		err = validator.ValidateLinkCount(fiveLinks, "")
+		if err != nil {
+			t.Errorf("Expected no error for 5 links, got: %v", err)
+		}
+
+		// Test unique links logic
+		// "If the text field contains www.example.com, www.example.com, and www.test.com,
+		// and the link_attachment is www.test.com, this counts as 2 links"
+		// (Assuming http/https prefix for validator detection)
+		duplicateLinks := "http://example.com http://example.com http://test.com"
+		err = validator.ValidateLinkCount(duplicateLinks, "http://test.com")
+		if err != nil {
+			t.Errorf("Expected no error for duplicate links (should count as 2), got: %v", err)
+		}
+
+		// Test link_attachment adds to count
+		// "If the text field contains www.instagram.com and www.threads.com,
+		// and the link_attachment is www.facebook.com, this counts as 3 links."
+		textWithLinks := "http://instagram.com http://threads.com"
+		err = validator.ValidateLinkCount(textWithLinks, "http://facebook.com")
+		if err != nil {
+			t.Errorf("Expected no error for 3 total links, got: %v", err)
+		}
+
+		// Test invalid link count (6 unique links)
+		sixLinks := "http://a.com https://b.com http://c.com https://d.com http://e.com https://f.com"
+		err = validator.ValidateLinkCount(sixLinks, "")
+		if err == nil {
+			t.Error("Expected error for 6 links")
+		}
+
+		// Test invalid link count (5 in text + 1 unique in attachment)
+		fiveInText := "http://a.com https://b.com http://c.com https://d.com http://e.com"
+		err = validator.ValidateLinkCount(fiveInText, "http://f.com")
+		if err == nil {
+			t.Error("Expected error for 6 total unique links")
+		}
+	})
 }
 
 func TestPostIDTypes(t *testing.T) {

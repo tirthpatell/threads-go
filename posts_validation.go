@@ -18,6 +18,11 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 		return err
 	}
 
+	// Validate link count (including link_attachment)
+	if err := validator.ValidateLinkCount(content.Text, content.LinkAttachment); err != nil {
+		return err
+	}
+
 	// Validate text entities (spoilers) if present
 	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
 		return err
@@ -82,6 +87,11 @@ func (c *Client) ValidateImagePostContent(content *ImagePostContent) error {
 		return err
 	}
 
+	// Validate link count
+	if err := validator.ValidateLinkCount(content.Text, ""); err != nil {
+		return err
+	}
+
 	// Validate text entities (spoilers) if present
 	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
 		return err
@@ -122,6 +132,11 @@ func (c *Client) ValidateVideoPostContent(content *VideoPostContent) error {
 		return err
 	}
 
+	// Validate link count
+	if err := validator.ValidateLinkCount(content.Text, ""); err != nil {
+		return err
+	}
+
 	// Validate text entities (spoilers) if present
 	if err := validator.ValidateTextEntities(content.TextEntities); err != nil {
 		return err
@@ -159,6 +174,11 @@ func (c *Client) ValidateCarouselPostContent(content *CarouselPostContent) error
 
 	// Validate text length if present (500-character limit)
 	if err := validator.ValidateTextLength(content.Text, "Text"); err != nil {
+		return err
+	}
+
+	// Validate link count
+	if err := validator.ValidateLinkCount(content.Text, ""); err != nil {
 		return err
 	}
 
