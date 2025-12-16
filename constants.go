@@ -46,6 +46,9 @@ const (
 	// Post fields
 	PostExtendedFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,alt_text,link_attachment_url,has_replies,reply_audience,quoted_post,reposted_post,gif_url"
 
+	// Ghost Post fields
+	GhostPostFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,ghost_post_status,ghost_post_expiration_timestamp"
+
 	// User fields
 	UserProfileFields = "id,username,name,threads_profile_picture_url,threads_biography,is_verified"
 

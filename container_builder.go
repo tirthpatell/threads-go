@@ -203,6 +203,14 @@ func (b *ContainerBuilder) SetGIFAttachment(gifAttachment *GIFAttachment) *Conta
 	return b
 }
 
+// SetIsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed)
+func (b *ContainerBuilder) SetIsGhostPost(isGhostPost bool) *ContainerBuilder {
+	if isGhostPost {
+		b.params.Set("is_ghost_post", "true")
+	}
+	return b
+}
+
 // Build returns the built parameters
 func (b *ContainerBuilder) Build() url.Values {
 	return b.params

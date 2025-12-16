@@ -73,6 +73,8 @@ type Post struct {
 	IsReplyOwnedByMe  bool          `json:"is_reply_owned_by_me,omitempty"`
 	HideStatus        string        `json:"hide_status,omitempty"`
 	TopicTag          string        `json:"topic_tag,omitempty"`
+	GhostPostStatus   string        `json:"ghost_post_status,omitempty"`
+	GhostPostExpirationTimestamp Time `json:"ghost_post_expiration_timestamp,omitempty"`
 }
 
 // User represents a Threads user profile with app-scoped data.
@@ -142,6 +144,8 @@ type TextPostContent struct {
 	// Can only be used with TEXT-only posts (not with image, video, or carousel posts)
 	// Tenor is currently the only available GIF provider
 	GIFAttachment *GIFAttachment `json:"gif_attachment,omitempty"`
+	// IsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed)
+	IsGhostPost bool `json:"is_ghost_post,omitempty"`
 }
 
 // ImagePostContent represents content for image posts.

@@ -110,6 +110,37 @@ func TestConfigValidation(t *testing.T) {
 	}
 }
 
+func TestGhostPostValidation(t *testing.T) {
+	client := &Client{}
+
+	// Test valid ghost post
+	validGhost := &TextPostContent{
+		Text:        "This is a ghost post",
+		IsGhostPost: true,
+	}
+	err := client.ValidateTextPostContent(validGhost)
+	if err != nil {
+		t.Errorf("Expected valid ghost post to pass validation, got: %v", err)
+	}
+
+	// Test invalid ghost post (reply)
+	invalidGhost := &TextPostContent{
+		Text:        "This is an invalid ghost post",
+		IsGhostPost: true,
+		ReplyTo:     "some-post-id",
+	}
+	err = client.ValidateTextPostContent(invalidGhost)
+	if err == nil {
+		t.Error("Expected error for ghost post with ReplyTo")
+	} else if validationErr, ok := err.(*ValidationError); ok {
+		if validationErr.Field != "is_ghost_post" {
+			t.Errorf("Expected error field 'is_ghost_post', got '%s'", validationErr.Field)
+		}
+	} else {
+		t.Errorf("Expected ValidationError, got %T", err)
+	}
+}
+
 func TestValidation(t *testing.T) {
 	validator := NewValidator()
 

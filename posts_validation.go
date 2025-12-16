@@ -71,6 +71,16 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 		}
 	}
 
+	// Validate Ghost Post constraints
+	if content.IsGhostPost {
+		if content.ReplyTo != "" {
+			return NewValidationError(400,
+				"Invalid ghost post",
+				"Ghost posts cannot be replies",
+				"is_ghost_post")
+		}
+	}
+
 	return nil
 }
 
