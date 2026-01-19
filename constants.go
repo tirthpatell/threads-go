@@ -43,8 +43,8 @@ const (
 
 // Field Sets for API requests
 const (
-	// Post fields
-	PostExtendedFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,alt_text,link_attachment_url,has_replies,reply_audience,quoted_post,reposted_post,gif_url"
+	// Post fields (is_verified and profile_picture_url added December 16, 2025 for replies/mentions)
+	PostExtendedFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,alt_text,link_attachment_url,has_replies,reply_audience,quoted_post,reposted_post,gif_url,is_verified,profile_picture_url"
 
 	// Ghost Post fields
 	GhostPostFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,ghost_post_status,ghost_post_expiration_timestamp"
@@ -53,7 +53,8 @@ const (
 	UserProfileFields = "id,username,name,threads_profile_picture_url,threads_biography,is_verified"
 
 	// Reply fields (includes additional reply-specific fields)
-	ReplyFields = "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,has_replies,root_post,replied_to,is_reply,is_reply_owned_by_me,reply_audience,quoted_post,reposted_post,gif_url,alt_text,hide_status,topic_tag"
+	// is_verified and profile_picture_url added December 16, 2025 (only available on direct replies for conversations)
+	ReplyFields = "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,has_replies,root_post,replied_to,is_reply,is_reply_owned_by_me,reply_audience,quoted_post,reposted_post,gif_url,alt_text,hide_status,topic_tag,is_verified,profile_picture_url"
 
 	// Container status fields
 	ContainerStatusFields = "id,status,error_message"
@@ -92,4 +93,12 @@ const (
 	ErrEmptyUserID      = "User ID is required"
 	ErrEmptyContainerID = "Container ID is required"
 	ErrEmptySearchQuery = "Search query is required"
+)
+
+// API Error Codes returned by the Threads API
+const (
+	// ErrCodeLinkLimitExceeded is returned when a post contains more than 5 unique links.
+	// This error occurs during media container creation (POST /{threads-user-id}/threads).
+	// Added December 22, 2025. Reduce the number of unique links to 5 or fewer to resolve.
+	ErrCodeLinkLimitExceeded = "THREADS_API__LINK_LIMIT_EXCEEDED"
 )

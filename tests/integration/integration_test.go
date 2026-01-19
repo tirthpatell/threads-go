@@ -892,6 +892,53 @@ func TestIntegration_ValidationErrors(t *testing.T) {
 			t.Logf("Validation error (expected): %v", err)
 		}
 	})
+
+	t.Run("TooManyLinks", func(t *testing.T) {
+		// Try to create post with more than 5 unique links (should fail validation)
+		// Added December 22, 2025: THREADS_API__LINK_LIMIT_EXCEEDED
+		content := &threads.TextPostContent{
+			Text: "Check out these links: https://example1.com https://example2.com https://example3.com https://example4.com https://example5.com https://example6.com",
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for too many links (max 5)")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("TooManyLinksWithLinkAttachment", func(t *testing.T) {
+		// Try to create post with 5 links in text + 1 different link_attachment (should fail validation)
+		content := &threads.TextPostContent{
+			Text:           "Links: https://example1.com https://example2.com https://example3.com https://example4.com https://example5.com",
+			LinkAttachment: "https://example6.com", // 6th unique link
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for too many links with link_attachment")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("LinksWithDuplicateLinkAttachment", func(t *testing.T) {
+		// 5 unique links in text + link_attachment that duplicates one = should pass (5 unique total)
+		// This tests that duplicate link_attachment is not double-counted
+		content := &threads.TextPostContent{
+			Text:           "Links: https://example1.com https://example2.com https://example3.com https://example4.com https://example5.com",
+			LinkAttachment: "https://example1.com", // Duplicate, should not count as 6th
+		}
+
+		// This should NOT fail validation (5 unique links is the limit)
+		err := client.ValidateTextPostContent(content)
+		if err != nil {
+			t.Errorf("Unexpected validation error for 5 unique links with duplicate link_attachment: %v", err)
+		} else {
+			t.Log("Validation passed (expected): 5 unique links with duplicate link_attachment")
+		}
+	})
 }
 
 // TestIntegration_GIFPosts tests GIF attachment functionality

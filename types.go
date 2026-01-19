@@ -75,6 +75,14 @@ type Post struct {
 	TopicTag                     string        `json:"topic_tag,omitempty"`
 	GhostPostStatus              string        `json:"ghost_post_status,omitempty"`
 	GhostPostExpirationTimestamp Time          `json:"ghost_post_expiration_timestamp,omitempty"`
+	// IsVerified indicates if the post author's profile is verified on Threads.
+	// Available for replies and mentions. For conversations, only available on direct replies.
+	// Added December 16, 2025.
+	IsVerified bool `json:"is_verified,omitempty"`
+	// ProfilePictureURL is the URL of the post author's profile picture on Threads.
+	// Available for replies and mentions. For conversations, only available on direct replies.
+	// Added December 16, 2025.
+	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 }
 
 // User represents a Threads user profile with app-scoped data.
