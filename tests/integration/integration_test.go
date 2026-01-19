@@ -341,8 +341,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 		t.Logf("Created second media container: %s", container2)
 
-		// Wait a moment for containers to be ready
-		time.Sleep(1 * time.Second)
+		// Note: No sleep needed - CreateCarouselPost waits for child containers to be ready
 
 		// Create carousel post
 		content := &threads.CarouselPostContent{
@@ -681,7 +680,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			return
 		}
 
-		time.Sleep(1 * time.Second)
+		// Note: No sleep needed - CreateCarouselPost waits for child containers to be ready
 
 		// Create carousel with all media marked as spoilers
 		content := &threads.CarouselPostContent{
