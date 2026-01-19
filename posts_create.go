@@ -138,6 +138,14 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 		return nil, err
 	}
 
+	// Wait for all child containers to be ready before creating the carousel container
+	// The Threads API requires child containers to be in FINISHED status
+	for i, childID := range content.Children {
+		if err := c.waitForContainerReady(ctx, ContainerID(childID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
+			return nil, fmt.Errorf("child container %d (%s) not ready: %w", i+1, childID, err)
+		}
+	}
+
 	// Create container first
 	containerID, err := c.createCarouselContainer(ctx, content)
 	if err != nil {
