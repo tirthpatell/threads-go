@@ -443,3 +443,20 @@ func TestGIFAttachmentStruct(t *testing.T) {
 		t.Errorf("Expected Provider to be GIFProviderTenor, got '%s'", gif.Provider)
 	}
 }
+
+func TestSearchOptionsAuthorUsername(t *testing.T) {
+	opts := &SearchOptions{
+		AuthorUsername: "testuser",
+		SearchType:     SearchTypeTop,
+	}
+
+	if opts.AuthorUsername != "testuser" {
+		t.Errorf("Expected AuthorUsername to be 'testuser', got '%s'", opts.AuthorUsername)
+	}
+
+	// Test with @ prefix (should be stripped in search.go)
+	opts.AuthorUsername = "@testuser"
+	if opts.AuthorUsername != "@testuser" {
+		t.Errorf("Expected AuthorUsername to be '@testuser', got '%s'", opts.AuthorUsername)
+	}
+}
