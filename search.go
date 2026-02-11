@@ -40,6 +40,14 @@ func (c *Client) KeywordSearch(ctx context.Context, query string, opts *SearchOp
 			}
 			params.Set("media_type", mediaType)
 		}
+		if opts.AuthorUsername != "" {
+			// Strip leading @ if present for convenience
+			username := strings.TrimPrefix(opts.AuthorUsername, "@")
+			if strings.TrimSpace(username) == "" {
+				return nil, NewValidationError(400, "Invalid author username", "Author username cannot be empty", "author_username")
+			}
+			params.Set("author_username", username)
+		}
 		if opts.Limit > 0 {
 			if opts.Limit > 100 {
 				return nil, NewValidationError(400, "Limit too large", "Maximum limit is 100 posts per request", "limit")

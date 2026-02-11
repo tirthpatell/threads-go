@@ -77,11 +77,9 @@ type Post struct {
 	GhostPostExpirationTimestamp Time          `json:"ghost_post_expiration_timestamp,omitempty"`
 	// IsVerified indicates if the post author's profile is verified on Threads.
 	// Available for replies and mentions. For conversations, only available on direct replies.
-	// Added December 16, 2025.
 	IsVerified bool `json:"is_verified,omitempty"`
 	// ProfilePictureURL is the URL of the post author's profile picture on Threads.
 	// Available for replies and mentions. For conversations, only available on direct replies.
-	// Added December 16, 2025.
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 }
 
@@ -326,14 +324,15 @@ type RepliesOptions struct {
 
 // SearchOptions represents options for keyword and topic tag search
 type SearchOptions struct {
-	SearchType SearchType `json:"search_type,omitempty"`
-	SearchMode SearchMode `json:"search_mode,omitempty"`
-	MediaType  string     `json:"media_type,omitempty"` // Filter by media type: TEXT, IMAGE, or VIDEO
-	Limit      int        `json:"limit,omitempty"`
-	Since      int64      `json:"since,omitempty"` // Unix timestamp (must be >= 1688540400)
-	Until      int64      `json:"until,omitempty"` // Unix timestamp
-	Before     string     `json:"before,omitempty"`
-	After      string     `json:"after,omitempty"`
+	SearchType     SearchType `json:"search_type,omitempty"`
+	SearchMode     SearchMode `json:"search_mode,omitempty"`
+	MediaType      string     `json:"media_type,omitempty"`      // Filter by media type: TEXT, IMAGE, or VIDEO
+	AuthorUsername string     `json:"author_username,omitempty"` // Filter by author username (exact match, without @)
+	Limit          int        `json:"limit,omitempty"`
+	Since          int64      `json:"since,omitempty"` // Unix timestamp (must be >= 1688540400)
+	Until          int64      `json:"until,omitempty"` // Unix timestamp
+	Before         string     `json:"before,omitempty"`
+	After          string     `json:"after,omitempty"`
 }
 
 // SearchType defines the search behavior
