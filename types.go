@@ -81,6 +81,8 @@ type Post struct {
 	// ProfilePictureURL is the URL of the post author's profile picture on Threads.
 	// Available for replies and mentions. For conversations, only available on direct replies.
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
+	// ReplyApprovalStatus is the approval status of a pending reply ("pending" or "ignored")
+	ReplyApprovalStatus string `json:"reply_approval_status,omitempty"`
 }
 
 // User represents a Threads user profile with app-scoped data.
@@ -152,6 +154,8 @@ type TextPostContent struct {
 	GIFAttachment *GIFAttachment `json:"gif_attachment,omitempty"`
 	// IsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed)
 	IsGhostPost bool `json:"is_ghost_post,omitempty"`
+	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
+	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
 }
 
 // ImagePostContent represents content for image posts.
@@ -173,6 +177,8 @@ type ImagePostContent struct {
 	TextEntities []TextEntity `json:"text_entities,omitempty"`
 	// IsSpoilerMedia marks the image as a spoiler
 	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
+	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
+	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
 }
 
 // VideoPostContent represents content for video posts.
@@ -194,6 +200,8 @@ type VideoPostContent struct {
 	TextEntities []TextEntity `json:"text_entities,omitempty"`
 	// IsSpoilerMedia marks the video as a spoiler
 	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
+	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
+	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
 }
 
 // CarouselPostContent represents content for carousel posts.
@@ -214,6 +222,8 @@ type CarouselPostContent struct {
 	TextEntities []TextEntity `json:"text_entities,omitempty"`
 	// IsSpoilerMedia marks ALL carousel media (images/videos) as spoilers
 	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
+	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
+	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
 }
 
 // ReplyControl defines who can reply to a post
@@ -320,6 +330,25 @@ type RepliesOptions struct {
 	Before  string `json:"before,omitempty"`
 	After   string `json:"after,omitempty"`
 	Reverse *bool  `json:"reverse,omitempty"` // true for reverse chronological, false for chronological (default: true)
+}
+
+// ApprovalStatus represents the approval status filter for pending replies
+type ApprovalStatus string
+
+const (
+	// ApprovalStatusPending filters to show only pending replies
+	ApprovalStatusPending ApprovalStatus = "pending"
+	// ApprovalStatusIgnored filters to show only ignored replies
+	ApprovalStatusIgnored ApprovalStatus = "ignored"
+)
+
+// PendingRepliesOptions represents options for retrieving pending replies
+type PendingRepliesOptions struct {
+	Limit          int            `json:"limit,omitempty"`
+	Before         string         `json:"before,omitempty"`
+	After          string         `json:"after,omitempty"`
+	Reverse        *bool          `json:"reverse,omitempty"`         // true for reverse chronological (default), false for chronological
+	ApprovalStatus ApprovalStatus `json:"approval_status,omitempty"` // Filter by approval status: "pending" or "ignored"
 }
 
 // SearchOptions represents options for keyword and topic tag search

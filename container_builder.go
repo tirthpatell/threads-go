@@ -211,6 +211,14 @@ func (b *ContainerBuilder) SetIsGhostPost(isGhostPost bool) *ContainerBuilder {
 	return b
 }
 
+// SetEnableReplyApprovals enables reply approvals on the post
+func (b *ContainerBuilder) SetEnableReplyApprovals(enable bool) *ContainerBuilder {
+	if enable {
+		b.params.Set("enable_reply_approvals", "true")
+	}
+	return b
+}
+
 // Build returns the built parameters
 func (b *ContainerBuilder) Build() url.Values {
 	return b.params

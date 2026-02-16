@@ -444,6 +444,85 @@ func TestGIFAttachmentStruct(t *testing.T) {
 	}
 }
 
+func TestReplyApprovalsValidation(t *testing.T) {
+	client := &Client{}
+
+	// Test valid post with reply approvals
+	validContent := &TextPostContent{
+		Text:                 "Post with reply approvals",
+		EnableReplyApprovals: true,
+	}
+	err := client.ValidateTextPostContent(validContent)
+	if err != nil {
+		t.Errorf("Expected valid post with reply approvals, got: %v", err)
+	}
+
+	// Test ghost post with reply approvals (should fail)
+	invalidContent := &TextPostContent{
+		Text:                 "Invalid ghost post",
+		IsGhostPost:          true,
+		EnableReplyApprovals: true,
+	}
+	err = client.ValidateTextPostContent(invalidContent)
+	if err == nil {
+		t.Error("Expected error for ghost post with reply approvals")
+	} else if validationErr, ok := err.(*ValidationError); ok {
+		if validationErr.Field != "enable_reply_approvals" {
+			t.Errorf("Expected error field 'enable_reply_approvals', got '%s'", validationErr.Field)
+		}
+	} else {
+		t.Errorf("Expected ValidationError, got %T", err)
+	}
+}
+
+func TestContainerBuilderEnableReplyApprovals(t *testing.T) {
+	builder := NewContainerBuilder()
+
+	params := builder.
+		SetMediaType(MediaTypeText).
+		SetText("Post with reply approvals").
+		SetEnableReplyApprovals(true).
+		Build()
+
+	if params.Get("enable_reply_approvals") != "true" {
+		t.Errorf("Expected enable_reply_approvals to be 'true', got '%s'", params.Get("enable_reply_approvals"))
+	}
+
+	// Test false (should not set param)
+	builder2 := NewContainerBuilder()
+	params2 := builder2.
+		SetMediaType(MediaTypeText).
+		SetText("Normal post").
+		SetEnableReplyApprovals(false).
+		Build()
+
+	if params2.Get("enable_reply_approvals") != "" {
+		t.Errorf("Expected enable_reply_approvals to be empty when false, got '%s'", params2.Get("enable_reply_approvals"))
+	}
+}
+
+func TestPendingRepliesOptionsApprovalStatus(t *testing.T) {
+	// Test valid statuses
+	if ApprovalStatusPending != "pending" {
+		t.Errorf("Expected ApprovalStatusPending to be 'pending', got '%s'", ApprovalStatusPending)
+	}
+	if ApprovalStatusIgnored != "ignored" {
+		t.Errorf("Expected ApprovalStatusIgnored to be 'ignored', got '%s'", ApprovalStatusIgnored)
+	}
+
+	// Test options struct
+	reverse := false
+	opts := &PendingRepliesOptions{
+		Limit:          25,
+		Reverse:        &reverse,
+		ApprovalStatus: ApprovalStatusPending,
+	}
+
+	if opts.ApprovalStatus != "pending" {
+		t.Errorf("Expected ApprovalStatus to be 'pending', got '%s'", opts.ApprovalStatus)
+	}
+}
+
 func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts := &SearchOptions{
 		AuthorUsername: "testuser",

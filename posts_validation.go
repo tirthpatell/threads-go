@@ -79,6 +79,12 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 				"Ghost posts cannot be replies",
 				"is_ghost_post")
 		}
+		if content.EnableReplyApprovals {
+			return NewValidationError(400,
+				"Invalid ghost post",
+				"Ghost posts cannot have reply approvals enabled",
+				"enable_reply_approvals")
+		}
 	}
 
 	return nil

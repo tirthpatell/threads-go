@@ -307,7 +307,8 @@ func (c *Client) createTextContainer(ctx context.Context, content *TextPostConte
 		SetTextEntities(content.TextEntities).
 		SetTextAttachment(content.TextAttachment).
 		SetGIFAttachment(content.GIFAttachment).
-		SetIsGhostPost(content.IsGhostPost)
+		SetIsGhostPost(content.IsGhostPost).
+		SetEnableReplyApprovals(content.EnableReplyApprovals)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -330,7 +331,8 @@ func (c *Client) createImageContainer(ctx context.Context, content *ImagePostCon
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
-		SetIsSpoilerMedia(content.IsSpoilerMedia)
+		SetIsSpoilerMedia(content.IsSpoilerMedia).
+		SetEnableReplyApprovals(content.EnableReplyApprovals)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -353,7 +355,8 @@ func (c *Client) createVideoContainer(ctx context.Context, content *VideoPostCon
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
-		SetIsSpoilerMedia(content.IsSpoilerMedia)
+		SetIsSpoilerMedia(content.IsSpoilerMedia).
+		SetEnableReplyApprovals(content.EnableReplyApprovals)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -380,7 +383,8 @@ func (c *Client) createCarouselContainer(ctx context.Context, content *CarouselP
 		SetAllowlistedCountryCodes(content.AllowlistedCountryCodes).
 		SetLocationID(content.LocationID).
 		SetTextEntities(content.TextEntities).
-		SetIsSpoilerMedia(content.IsSpoilerMedia)
+		SetIsSpoilerMedia(content.IsSpoilerMedia).
+		SetEnableReplyApprovals(content.EnableReplyApprovals)
 
 	// Add quoted post ID if this is a quote post
 	if content.QuotedPostID != "" {
@@ -406,7 +410,8 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 		SetTextEntities(content.TextEntities).
 		SetTextAttachment(content.TextAttachment).
 		SetGIFAttachment(content.GIFAttachment).
-		SetIsGhostPost(content.IsGhostPost)
+		SetIsGhostPost(content.IsGhostPost).
+		SetEnableReplyApprovals(content.EnableReplyApprovals)
 
 	// Get user ID from token info
 	userID := c.getUserID()

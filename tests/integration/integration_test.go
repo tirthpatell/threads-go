@@ -1070,6 +1070,202 @@ func TestIntegration_GIFValidationErrors(t *testing.T) {
 	})
 }
 
+// TestIntegration_ReplyApprovals tests reply approval functionality
+func TestIntegration_ReplyApprovals(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	t.Run("CreatePostWithReplyApprovals", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text:                 fmt.Sprintf("CI test post with reply approvals at %s", time.Now().Format(time.RFC3339)),
+			EnableReplyApprovals: true,
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost with reply approvals failed: %v", err)
+			return
+		}
+
+		if post.ID == "" {
+			t.Error("Created post should have an ID")
+		}
+
+		t.Logf("Created post with reply approvals: ID=%s", post.ID)
+
+		// Test getting pending replies for the post
+		time.Sleep(2 * time.Second)
+		pendingResp, err := client.GetPendingReplies(context.Background(), threads.ConvertToPostID(post.ID), nil)
+		if err != nil {
+			t.Errorf("GetPendingReplies failed: %v", err)
+		} else {
+			t.Logf("Pending replies count: %d", len(pendingResp.Data))
+		}
+
+		// Test getting pending replies with options
+		pendingResp, err = client.GetPendingReplies(context.Background(), threads.ConvertToPostID(post.ID), &threads.PendingRepliesOptions{
+			Limit:          10,
+			ApprovalStatus: threads.ApprovalStatusPending,
+		})
+		if err != nil {
+			t.Errorf("GetPendingReplies with options failed: %v", err)
+		} else {
+			t.Logf("Pending replies (filtered): %d", len(pendingResp.Data))
+		}
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
+		} else {
+			t.Logf("Successfully deleted test post %s", post.ID)
+		}
+	})
+
+	t.Run("CreateImagePostWithReplyApprovals", func(t *testing.T) {
+		if testImageURL1 == "" {
+			t.Skip("Skipping: THREADS_TEST_IMG1 not provided")
+		}
+
+		content := &threads.ImagePostContent{
+			Text:                 fmt.Sprintf("CI test image post with reply approvals at %s", time.Now().Format(time.RFC3339)),
+			ImageURL:             testImageURL1,
+			EnableReplyApprovals: true,
+		}
+
+		post, err := client.CreateImagePost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateImagePost with reply approvals failed: %v", err)
+			return
+		}
+
+		t.Logf("Created image post with reply approvals: ID=%s", post.ID)
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("GetPendingRepliesWithIgnoredFilter", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text:                 fmt.Sprintf("CI test pending replies ignored filter at %s", time.Now().Format(time.RFC3339)),
+			EnableReplyApprovals: true,
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost failed: %v", err)
+			return
+		}
+
+		time.Sleep(2 * time.Second)
+
+		// Test with ignored filter
+		pendingResp, err := client.GetPendingReplies(context.Background(), threads.ConvertToPostID(post.ID), &threads.PendingRepliesOptions{
+			ApprovalStatus: threads.ApprovalStatusIgnored,
+		})
+		if err != nil {
+			t.Errorf("GetPendingReplies with ignored filter failed: %v", err)
+		} else {
+			t.Logf("Ignored replies: %d", len(pendingResp.Data))
+		}
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
+		}
+	})
+}
+
+// TestIntegration_ReplyApprovalsValidation tests validation errors for reply approvals
+func TestIntegration_ReplyApprovalsValidation(t *testing.T) {
+	skipIfNoCredentials(t)
+
+	client := createTestClient(t)
+
+	t.Run("GhostPostWithReplyApprovals", func(t *testing.T) {
+		content := &threads.TextPostContent{
+			Text:                 "This should fail validation",
+			IsGhostPost:          true,
+			EnableReplyApprovals: true,
+		}
+
+		_, err := client.CreateTextPost(context.Background(), content)
+		if err == nil {
+			t.Error("Expected validation error for ghost post with reply approvals")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("InvalidApprovalStatus", func(t *testing.T) {
+		// Create a post first to have a valid post ID for pending replies
+		content := &threads.TextPostContent{
+			Text:                 fmt.Sprintf("CI test invalid approval status at %s", time.Now().Format(time.RFC3339)),
+			EnableReplyApprovals: true,
+		}
+
+		post, err := client.CreateTextPost(context.Background(), content)
+		if err != nil {
+			t.Errorf("CreateTextPost failed: %v", err)
+			return
+		}
+
+		time.Sleep(2 * time.Second)
+
+		// Test with invalid approval status
+		_, err = client.GetPendingReplies(context.Background(), threads.ConvertToPostID(post.ID), &threads.PendingRepliesOptions{
+			ApprovalStatus: threads.ApprovalStatus("invalid"),
+		})
+		if err == nil {
+			t.Error("Expected validation error for invalid approval status")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+
+		// Clean up
+		time.Sleep(1 * time.Second)
+		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		if err != nil {
+			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
+		}
+	})
+
+	t.Run("PendingRepliesInvalidPostID", func(t *testing.T) {
+		_, err := client.GetPendingReplies(context.Background(), threads.PostID(""), nil)
+		if err == nil {
+			t.Error("Expected validation error for empty post ID")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("ApproveInvalidReplyID", func(t *testing.T) {
+		err := client.ApprovePendingReply(context.Background(), threads.PostID(""))
+		if err == nil {
+			t.Error("Expected validation error for empty reply ID")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+
+	t.Run("IgnoreInvalidReplyID", func(t *testing.T) {
+		err := client.IgnorePendingReply(context.Background(), threads.PostID(""))
+		if err == nil {
+			t.Error("Expected validation error for empty reply ID")
+		} else {
+			t.Logf("Validation error (expected): %v", err)
+		}
+	})
+}
+
 // Helper functions
 
 // truncateString truncates strings for logging

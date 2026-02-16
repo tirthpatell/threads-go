@@ -167,6 +167,15 @@ type ReplyManager interface {
 
 	// GetUserReplies retrieves all replies by a user
 	GetUserReplies(ctx context.Context, userID UserID, opts *PostsOptions) (*RepliesResponse, error)
+
+	// GetPendingReplies retrieves pending replies for a post with reply approvals enabled
+	GetPendingReplies(ctx context.Context, postID PostID, opts *PendingRepliesOptions) (*RepliesResponse, error)
+
+	// ApprovePendingReply approves a pending reply, making it publicly visible
+	ApprovePendingReply(ctx context.Context, replyID PostID) error
+
+	// IgnorePendingReply ignores a pending reply (it can still be approved later)
+	IgnorePendingReply(ctx context.Context, replyID PostID) error
 }
 
 // InsightsProvider handles analytics and insights operations
