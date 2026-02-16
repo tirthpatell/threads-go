@@ -120,7 +120,7 @@ func (c *Client) GetPendingReplies(ctx context.Context, postID PostID, opts *Pen
 
 	// Build query parameters
 	params := url.Values{
-		"fields": {ReplyFields + ",reply_approval_status"},
+		"fields": {ReplyFields},
 	}
 
 	if opts != nil {
