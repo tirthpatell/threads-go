@@ -53,7 +53,7 @@ const (
 	UserProfileFields = "id,username,name,threads_profile_picture_url,threads_biography,is_verified"
 
 	// Reply fields (includes additional reply-specific fields)
-	ReplyFields = "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,has_replies,root_post,replied_to,is_reply,is_reply_owned_by_me,reply_audience,quoted_post,reposted_post,gif_url,alt_text,hide_status,topic_tag,is_verified,profile_picture_url"
+	ReplyFields = "id,media_product_type,media_type,media_url,permalink,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,has_replies,root_post,replied_to,is_reply,is_reply_owned_by_me,reply_audience,quoted_post,reposted_post,gif_url,alt_text,hide_status,topic_tag,is_verified,profile_picture_url,reply_approval_status"
 
 	// Container status fields
 	ContainerStatusFields = "id,status,error_message"
