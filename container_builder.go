@@ -125,6 +125,9 @@ func (b *ContainerBuilder) SetAllowlistedCountryCodes(codes []string) *Container
 
 // AddChild adds a child container ID (for carousel posts)
 func (b *ContainerBuilder) AddChild(childID string) *ContainerBuilder {
+	if childID == "" {
+		return b
+	}
 	existing := b.params.Get("children")
 	if existing != "" {
 		b.params.Set("children", existing+","+childID)
