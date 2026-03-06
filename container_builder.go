@@ -125,16 +125,19 @@ func (b *ContainerBuilder) SetAllowlistedCountryCodes(codes []string) *Container
 
 // AddChild adds a child container ID (for carousel posts)
 func (b *ContainerBuilder) AddChild(childID string) *ContainerBuilder {
-	b.params.Add("children", childID)
+	existing := b.params.Get("children")
+	if existing != "" {
+		b.params.Set("children", existing+","+childID)
+	} else {
+		b.params.Set("children", childID)
+	}
 	return b
 }
 
 // SetChildren sets all children container IDs at once (for carousel posts)
 func (b *ContainerBuilder) SetChildren(childIDs []string) *ContainerBuilder {
-	for i, childID := range childIDs {
-		b.params.Add("children", childID)
-		// Also add as indexed parameter for API compatibility
-		b.params.Set(b.childIndexKey(i), childID)
+	if len(childIDs) > 0 {
+		b.params.Set("children", strings.Join(childIDs, ","))
 	}
 	return b
 }
@@ -222,35 +225,4 @@ func (b *ContainerBuilder) SetEnableReplyApprovals(enable bool) *ContainerBuilde
 // Build returns the built parameters
 func (b *ContainerBuilder) Build() url.Values {
 	return b.params
-}
-
-// childIndexKey generates the indexed child parameter key
-func (b *ContainerBuilder) childIndexKey(index int) string {
-	return "children[" + b.toString(index) + "]"
-}
-
-// toString converts an interface to string
-func (b *ContainerBuilder) toString(v interface{}) string {
-	switch val := v.(type) {
-	case string:
-		return val
-	case int:
-		// Convert int to string manually
-		if val == 0 {
-			return "0"
-		}
-		sign := ""
-		if val < 0 {
-			sign = "-"
-			val = -val
-		}
-		result := ""
-		for val > 0 {
-			result = string(rune('0'+val%10)) + result
-			val /= 10
-		}
-		return sign + result
-	default:
-		return ""
-	}
 }
