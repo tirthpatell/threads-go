@@ -1,6 +1,8 @@
 package threads
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -299,6 +301,80 @@ func TestContainerBuilder(t *testing.T) {
 	}
 }
 
+func TestContainerBuilderSetChildren(t *testing.T) {
+	t.Run("comma separated format", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		childIDs := []string{"id1", "id2", "id3", "id4", "id5"}
+		params := builder.SetChildren(childIDs).Build()
+
+		got := params.Get("children")
+		expected := "id1,id2,id3,id4,id5"
+		if got != expected {
+			t.Errorf("Expected children=%q, got %q", expected, got)
+		}
+	})
+
+	t.Run("preserves order with 10+ children", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		childIDs := make([]string, 20)
+		for i := range childIDs {
+			childIDs[i] = fmt.Sprintf("id_%d", i+1)
+		}
+		params := builder.SetChildren(childIDs).Build()
+
+		got := params.Get("children")
+		expected := strings.Join(childIDs, ",")
+		if got != expected {
+			t.Errorf("Children order not preserved.\nExpected: %s\nGot:      %s", expected, got)
+		}
+	})
+
+	t.Run("empty children", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetChildren(nil).Build()
+
+		if params.Get("children") != "" {
+			t.Error("Expected no children param for nil input")
+		}
+	})
+
+	t.Run("SetChildren nil clears existing", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		builder.AddChild("id1").AddChild("id2")
+		params := builder.SetChildren(nil).Build()
+
+		if params.Get("children") != "" {
+			t.Error("Expected SetChildren(nil) to clear existing children")
+		}
+	})
+
+	t.Run("no indexed params", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		childIDs := []string{"id1", "id2", "id3"}
+		params := builder.SetChildren(childIDs).Build()
+
+		encoded := params.Encode()
+		if strings.Contains(encoded, "children%5B") || strings.Contains(encoded, "children[") {
+			t.Errorf("Should not contain indexed children params, got: %s", encoded)
+		}
+	})
+}
+
+func TestContainerBuilderAddChild(t *testing.T) {
+	builder := NewContainerBuilder()
+	params := builder.
+		AddChild("id1").
+		AddChild("id2").
+		AddChild("id3").
+		Build()
+
+	got := params.Get("children")
+	expected := "id1,id2,id3"
+	if got != expected {
+		t.Errorf("Expected children=%q, got %q", expected, got)
+	}
+}
+
 func TestContainerBuilderGIFAttachment(t *testing.T) {
 	builder := NewContainerBuilder()
 
@@ -392,10 +468,18 @@ func TestValidateGIFAttachment(t *testing.T) {
 			errField:  "gif_attachment.provider",
 		},
 		{
+			name: "valid giphy provider",
+			gif: &GIFAttachment{
+				GIFID:    "test-gif-id",
+				Provider: GIFProviderGiphy,
+			},
+			shouldErr: false,
+		},
+		{
 			name: "invalid provider",
 			gif: &GIFAttachment{
 				GIFID:    "test-gif-id",
-				Provider: GIFProvider("GIPHY"),
+				Provider: GIFProvider("INVALID"),
 			},
 			shouldErr: true,
 			errField:  "gif_attachment.provider",
@@ -423,9 +507,11 @@ func TestValidateGIFAttachment(t *testing.T) {
 }
 
 func TestGIFProviderConstants(t *testing.T) {
-	// Verify the TENOR constant is correctly defined
 	if GIFProviderTenor != "TENOR" {
 		t.Errorf("Expected GIFProviderTenor to be 'TENOR', got '%s'", GIFProviderTenor)
+	}
+	if GIFProviderGiphy != "GIPHY" {
+		t.Errorf("Expected GIFProviderGiphy to be 'GIPHY', got '%s'", GIFProviderGiphy)
 	}
 }
 
