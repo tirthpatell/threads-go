@@ -136,9 +136,11 @@ func (b *ContainerBuilder) AddChild(childID string) *ContainerBuilder {
 
 // SetChildren sets all children container IDs at once (for carousel posts)
 func (b *ContainerBuilder) SetChildren(childIDs []string) *ContainerBuilder {
-	if len(childIDs) > 0 {
-		b.params.Set("children", strings.Join(childIDs, ","))
+	if len(childIDs) == 0 {
+		b.params.Del("children")
+		return b
 	}
+	b.params.Set("children", strings.Join(childIDs, ","))
 	return b
 }
 

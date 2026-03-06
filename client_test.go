@@ -338,6 +338,16 @@ func TestContainerBuilderSetChildren(t *testing.T) {
 		}
 	})
 
+	t.Run("SetChildren nil clears existing", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		builder.AddChild("id1").AddChild("id2")
+		params := builder.SetChildren(nil).Build()
+
+		if params.Get("children") != "" {
+			t.Error("Expected SetChildren(nil) to clear existing children")
+		}
+	})
+
 	t.Run("no indexed params", func(t *testing.T) {
 		builder := NewContainerBuilder()
 		childIDs := []string{"id1", "id2", "id3"}
