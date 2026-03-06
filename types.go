@@ -150,7 +150,7 @@ type TextPostContent struct {
 	TextAttachment *TextAttachment `json:"text_attachment,omitempty"`
 	// GIFAttachment allows attaching a GIF to the text post
 	// Can only be used with TEXT-only posts (not with image, video, or carousel posts)
-	// Tenor is currently the only available GIF provider
+	// Supported providers: TENOR (deprecated) and GIPHY
 	GIFAttachment *GIFAttachment `json:"gif_attachment,omitempty"`
 	// IsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed)
 	IsGhostPost bool `json:"is_ghost_post,omitempty"`
@@ -512,16 +512,19 @@ type TextStylingInfo struct {
 type GIFProvider string
 
 const (
-	// GIFProviderTenor is the Tenor GIF provider (currently the only supported provider)
+	// GIFProviderTenor is the Tenor GIF provider.
+	// Deprecated: Tenor API will be sunsetted by March 31, 2026. Use GIFProviderGiphy instead.
 	GIFProviderTenor GIFProvider = "TENOR"
+	// GIFProviderGiphy is the GIPHY GIF provider
+	GIFProviderGiphy GIFProvider = "GIPHY"
 )
 
 // GIFAttachment represents a GIF attachment for text posts
 // GIFs can only be attached to text-only posts (not image, video, or carousel posts)
-// Tenor is currently the only available GIF provider
+// Supported providers: TENOR (deprecated, sunset March 31, 2026) and GIPHY
 type GIFAttachment struct {
-	// GIFID is the ID of the GIF from the provider (e.g., Tenor API response id field)
+	// GIFID is the ID of the GIF from the provider's API response
 	GIFID string `json:"gif_id"`
-	// Provider is the GIF provider (currently only "TENOR" is supported)
+	// Provider is the GIF provider ("TENOR" or "GIPHY")
 	Provider GIFProvider `json:"provider"`
 }

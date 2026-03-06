@@ -1057,7 +1057,7 @@ func TestIntegration_GIFValidationErrors(t *testing.T) {
 			Text: "This should fail validation - invalid provider",
 			GIFAttachment: &threads.GIFAttachment{
 				GIFID:    "11366929630539488910",
-				Provider: threads.GIFProvider("GIPHY"), // Invalid provider
+				Provider: threads.GIFProvider("INVALID"),
 			},
 		}
 

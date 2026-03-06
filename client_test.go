@@ -392,10 +392,18 @@ func TestValidateGIFAttachment(t *testing.T) {
 			errField:  "gif_attachment.provider",
 		},
 		{
+			name: "valid giphy provider",
+			gif: &GIFAttachment{
+				GIFID:    "test-gif-id",
+				Provider: GIFProviderGiphy,
+			},
+			shouldErr: false,
+		},
+		{
 			name: "invalid provider",
 			gif: &GIFAttachment{
 				GIFID:    "test-gif-id",
-				Provider: GIFProvider("GIPHY"),
+				Provider: GIFProvider("INVALID"),
 			},
 			shouldErr: true,
 			errField:  "gif_attachment.provider",
@@ -423,9 +431,11 @@ func TestValidateGIFAttachment(t *testing.T) {
 }
 
 func TestGIFProviderConstants(t *testing.T) {
-	// Verify the TENOR constant is correctly defined
 	if GIFProviderTenor != "TENOR" {
 		t.Errorf("Expected GIFProviderTenor to be 'TENOR', got '%s'", GIFProviderTenor)
+	}
+	if GIFProviderGiphy != "GIPHY" {
+		t.Errorf("Expected GIFProviderGiphy to be 'GIPHY', got '%s'", GIFProviderGiphy)
 	}
 }
 

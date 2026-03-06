@@ -325,11 +325,11 @@ func (v *Validator) ValidateGIFAttachment(gifAttachment *GIFAttachment) error {
 			"gif_attachment.provider")
 	}
 
-	// Currently only TENOR is supported
-	if gifAttachment.Provider != GIFProviderTenor {
+	// Validate provider is a supported value
+	if gifAttachment.Provider != GIFProviderTenor && gifAttachment.Provider != GIFProviderGiphy {
 		return NewValidationError(400,
 			"Invalid GIF provider",
-			fmt.Sprintf("GIF provider '%s' is not supported. Currently only 'TENOR' is supported", gifAttachment.Provider),
+			fmt.Sprintf("GIF provider '%s' is not supported. Supported providers: 'TENOR', 'GIPHY'", gifAttachment.Provider),
 			"gif_attachment.provider")
 	}
 
