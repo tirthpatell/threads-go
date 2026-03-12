@@ -334,9 +334,10 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	}
 
-	// Set IsTransient on the base error
+	// Set IsTransient and HTTPStatusCode on the base error
 	if base := extractBaseError(resultErr); base != nil {
 		base.IsTransient = isTransient
+		base.HTTPStatusCode = resp.StatusCode
 	}
 
 	return resultErr
@@ -371,10 +372,15 @@ func (h *HTTPClient) isRetryableError(err error) bool {
 		return netErr.Temporary
 	}
 
-	// Some API errors are retry-able (5xx status codes)
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.Code >= 500 && apiErr.Code < 600
+	// Check base error for transient flag or 5xx HTTP status
+	baseErr := extractBaseError(err)
+	if baseErr != nil {
+		if baseErr.IsTransient {
+			return true
+		}
+		if baseErr.HTTPStatusCode >= 500 && baseErr.HTTPStatusCode < 600 {
+			return true
+		}
 	}
 
 	return false

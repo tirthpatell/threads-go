@@ -668,6 +668,43 @@ func (n *noopLogger) Info(msg string, fields ...any)  {}
 func (n *noopLogger) Warn(msg string, fields ...any)  {}
 func (n *noopLogger) Error(msg string, fields ...any) {}
 
+func TestIsRetryableErrorWithTransientAPIError(t *testing.T) {
+	h := &HTTPClient{
+		logger:      &noopLogger{},
+		retryConfig: &RetryConfig{MaxRetries: 3, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2},
+	}
+
+	// API error with code 2 but HTTP status 500 — should be retryable
+	apiErr := NewAPIError(2, "An unexpected error", "details", "trace")
+	apiErr.HTTPStatusCode = 500
+	apiErr.IsTransient = true
+	if !h.isRetryableError(apiErr) {
+		t.Error("Expected transient API error with HTTP 500 to be retryable")
+	}
+
+	// API error with code 2, HTTP status 500, is_transient false — still retryable (5xx)
+	apiErr2 := NewAPIError(2, "An unexpected error", "details", "trace")
+	apiErr2.HTTPStatusCode = 500
+	if !h.isRetryableError(apiErr2) {
+		t.Error("Expected API error with HTTP 500 to be retryable regardless of is_transient")
+	}
+
+	// API error with code 24, HTTP status 400, not transient — NOT retryable
+	valErr := NewValidationError(24, "Resource not found", "details", "")
+	valErr.HTTPStatusCode = 400
+	if h.isRetryableError(valErr) {
+		t.Error("Expected non-transient 400 error to NOT be retryable")
+	}
+
+	// Transient error with non-5xx status — retryable because is_transient=true
+	transientErr := NewValidationError(2, "Unexpected error", "details", "")
+	transientErr.HTTPStatusCode = 400
+	transientErr.IsTransient = true
+	if !h.isRetryableError(transientErr) {
+		t.Error("Expected transient error to be retryable even with non-5xx HTTP status")
+	}
+}
+
 func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts := &SearchOptions{
 		AuthorUsername: "testuser",

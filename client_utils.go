@@ -55,9 +55,10 @@ func (c *Client) handleAPIError(resp *Response) error {
 				resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 			}
 
-			// Set IsTransient on the base error
+			// Set IsTransient and HTTPStatusCode on the base error
 			if base := extractBaseError(resultErr); base != nil {
 				base.IsTransient = isTransient
+				base.HTTPStatusCode = resp.StatusCode
 			}
 
 			return resultErr
@@ -71,5 +72,7 @@ func (c *Client) handleAPIError(resp *Response) error {
 		details = details[:500] + "..."
 	}
 
-	return NewAPIError(resp.StatusCode, message, details, resp.RequestID)
+	fallbackErr := NewAPIError(resp.StatusCode, message, details, resp.RequestID)
+	fallbackErr.HTTPStatusCode = resp.StatusCode
+	return fallbackErr
 }

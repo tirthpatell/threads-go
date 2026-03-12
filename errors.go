@@ -9,11 +9,12 @@ import (
 // BaseError represents a base error type for all Threads API errors.
 // For error handling patterns, see: https://developers.facebook.com/docs/threads/troubleshooting
 type BaseError struct {
-	Code        int    `json:"code"`
-	Message     string `json:"message"`
-	Type        string `json:"type"`
-	Details     string `json:"details,omitempty"`
-	IsTransient bool   `json:"is_transient,omitempty"`
+	Code           int    `json:"code"`
+	Message        string `json:"message"`
+	Type           string `json:"type"`
+	Details        string `json:"details,omitempty"`
+	IsTransient    bool   `json:"is_transient,omitempty"`
+	HTTPStatusCode int    `json:"http_status_code,omitempty"`
 }
 
 // Error implements the error interface
