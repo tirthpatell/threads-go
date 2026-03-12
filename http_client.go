@@ -119,13 +119,6 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 			h.rateLimiter.UpdateFromHeaders(resp.RateLimit)
 		}
 
-		// Check if we should retry based on status code
-		if h.shouldRetryStatus(resp.StatusCode) {
-			lastErr = h.createErrorFromResponse(resp)
-			h.logRetry(attempt, maxRetries, lastErr)
-			continue
-		}
-
 		return resp, nil
 	}
 
@@ -386,18 +379,6 @@ func (h *HTTPClient) isRetryableError(err error) bool {
 	}
 
 	return false
-}
-
-// shouldRetryStatus determines if a status code should trigger a retry
-func (h *HTTPClient) shouldRetryStatus(statusCode int) bool {
-	switch statusCode {
-	case 429: // Too Many Requests
-		return true
-	case 500, 502, 503, 504: // Server errors
-		return true
-	default:
-		return false
-	}
 }
 
 // logRequest logs the outgoing HTTP request
