@@ -20,10 +20,11 @@ func (c *Client) getUserID() string {
 func (c *Client) handleAPIError(resp *Response) error {
 	var apiErr struct {
 		Error struct {
-			Message   string `json:"message"`
-			Type      string `json:"type"`
-			Code      int    `json:"code"`
-			ErrorData struct {
+			Message     string `json:"message"`
+			Type        string `json:"type"`
+			Code        int    `json:"code"`
+			IsTransient bool   `json:"is_transient"`
+			ErrorData   struct {
 				Details string `json:"details"`
 			} `json:"error_data"`
 		} `json:"error"`
@@ -35,22 +36,31 @@ func (c *Client) handleAPIError(resp *Response) error {
 			message := apiErr.Error.Message
 			details := apiErr.Error.ErrorData.Details
 			errorCode := apiErr.Error.Code
+			isTransient := apiErr.Error.IsTransient
 			if errorCode == 0 {
 				errorCode = resp.StatusCode
 			}
 
 			// Return appropriate error type based on status code
+			var resultErr error
 			switch resp.StatusCode {
 			case 401, 403:
-				return NewAuthenticationError(errorCode, message, details)
+				resultErr = NewAuthenticationError(errorCode, message, details)
 			case 429:
 				retryAfter := resp.RateLimit.RetryAfter
-				return NewRateLimitError(errorCode, message, details, retryAfter)
+				resultErr = NewRateLimitError(errorCode, message, details, retryAfter)
 			case 400, 422:
-				return NewValidationError(errorCode, message, details, "")
+				resultErr = NewValidationError(errorCode, message, details, "")
 			default:
-				return NewAPIError(errorCode, message, details, resp.RequestID)
+				resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 			}
+
+			// Set IsTransient on the base error
+			if base := extractBaseError(resultErr); base != nil {
+				base.IsTransient = isTransient
+			}
+
+			return resultErr
 		}
 	}
 

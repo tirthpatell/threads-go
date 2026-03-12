@@ -270,19 +270,22 @@ func (h *HTTPClient) parseRateLimitHeaders(headers http.Header) *RateLimitInfo {
 func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	var apiErr struct {
 		Error struct {
-			Message string `json:"message"`
-			Type    string `json:"type"`
-			Code    int    `json:"code"`
+			Message     string `json:"message"`
+			Type        string `json:"type"`
+			Code        int    `json:"code"`
+			IsTransient bool   `json:"is_transient"`
 		} `json:"error"`
 	}
 
 	// Try to parse error response
 	message := fmt.Sprintf("HTTP %d", resp.StatusCode)
 	errorCode := resp.StatusCode
+	isTransient := false
 
 	if len(resp.Body) > 0 {
 		if err := json.Unmarshal(resp.Body, &apiErr); err == nil && apiErr.Error.Message != "" {
 			message = apiErr.Error.Message
+			isTransient = apiErr.Error.IsTransient
 			if apiErr.Error.Code != 0 {
 				errorCode = apiErr.Error.Code
 			}
@@ -295,11 +298,12 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	}
 
 	// Create specific error types based on status code
+	var resultErr error
 	switch resp.StatusCode {
 	case 401:
-		return NewAuthenticationError(errorCode, message, details)
+		resultErr = NewAuthenticationError(errorCode, message, details)
 	case 403:
-		return NewAuthenticationError(errorCode, message, details)
+		resultErr = NewAuthenticationError(errorCode, message, details)
 	case 429:
 		retryAfter := time.Duration(0)
 		resetTime := time.Time{}
@@ -321,14 +325,21 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 			h.rateLimiter.MarkRateLimited(resetTime)
 		}
 
-		return NewRateLimitError(errorCode, message, details, retryAfter)
+		resultErr = NewRateLimitError(errorCode, message, details, retryAfter)
 	case 400, 422:
-		return NewValidationError(errorCode, message, details, "")
+		resultErr = NewValidationError(errorCode, message, details, "")
 	case 500, 502, 503, 504:
-		return NewAPIError(errorCode, message, details, resp.RequestID)
+		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	default:
-		return NewAPIError(errorCode, message, details, resp.RequestID)
+		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	}
+
+	// Set IsTransient on the base error
+	if base := extractBaseError(resultErr); base != nil {
+		base.IsTransient = isTransient
+	}
+
+	return resultErr
 }
 
 // wrapNetworkError wraps network errors with appropriate error types

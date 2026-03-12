@@ -9,10 +9,11 @@ import (
 // BaseError represents a base error type for all Threads API errors.
 // For error handling patterns, see: https://developers.facebook.com/docs/threads/troubleshooting
 type BaseError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Type    string `json:"type"`
-	Details string `json:"details,omitempty"`
+	Code        int    `json:"code"`
+	Message     string `json:"message"`
+	Type        string `json:"type"`
+	Details     string `json:"details,omitempty"`
+	IsTransient bool   `json:"is_transient,omitempty"`
 }
 
 // Error implements the error interface
@@ -134,6 +135,25 @@ func NewAPIError(code int, message, details, requestID string) *APIError {
 			Details: details,
 		},
 		RequestID: requestID,
+	}
+}
+
+// extractBaseError returns the embedded BaseError from any of the typed error types.
+// Returns nil if the error is not one of the known types.
+func extractBaseError(err error) *BaseError {
+	switch e := err.(type) {
+	case *AuthenticationError:
+		return e.BaseError
+	case *RateLimitError:
+		return e.BaseError
+	case *ValidationError:
+		return e.BaseError
+	case *NetworkError:
+		return e.BaseError
+	case *APIError:
+		return e.BaseError
+	default:
+		return nil
 	}
 }
 

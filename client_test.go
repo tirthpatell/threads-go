@@ -1,6 +1,7 @@
 package threads
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -608,6 +609,64 @@ func TestPendingRepliesOptionsApprovalStatus(t *testing.T) {
 		t.Errorf("Expected ApprovalStatus to be 'pending', got '%s'", opts.ApprovalStatus)
 	}
 }
+
+func TestErrorIsTransient(t *testing.T) {
+	apiErr := NewAPIError(2, "An unexpected error", "details", "trace-123")
+	apiErr.IsTransient = true
+	if !apiErr.IsTransient {
+		t.Error("Expected IsTransient to be true")
+	}
+	validErr := NewValidationError(400, "Bad request", "details", "field")
+	if validErr.IsTransient {
+		t.Error("Expected IsTransient to default to false")
+	}
+}
+
+func TestCreateErrorFromResponseParsesIsTransient(t *testing.T) {
+	h := &HTTPClient{
+		logger:      &noopLogger{},
+		retryConfig: &RetryConfig{MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2},
+	}
+
+	body := []byte(`{"error":{"message":"An unexpected error","type":"OAuthException","code":2,"is_transient":true}}`)
+	resp := &Response{
+		Body:       body,
+		StatusCode: 500,
+		RequestID:  "test-trace",
+	}
+
+	err := h.createErrorFromResponse(resp)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("Expected APIError, got %T: %v", err, err)
+	}
+	if !apiErr.IsTransient {
+		t.Error("Expected IsTransient to be true for transient API error")
+	}
+
+	body2 := []byte(`{"error":{"message":"Resource not found","type":"OAuthException","code":24,"is_transient":false}}`)
+	resp2 := &Response{
+		Body:       body2,
+		StatusCode: 400,
+		RequestID:  "test-trace-2",
+	}
+
+	err2 := h.createErrorFromResponse(resp2)
+	var valErr *ValidationError
+	if !errors.As(err2, &valErr) {
+		t.Fatalf("Expected ValidationError, got %T: %v", err2, err2)
+	}
+	if valErr.IsTransient {
+		t.Error("Expected IsTransient to be false for non-transient error")
+	}
+}
+
+type noopLogger struct{}
+
+func (n *noopLogger) Debug(msg string, fields ...any) {}
+func (n *noopLogger) Info(msg string, fields ...any)  {}
+func (n *noopLogger) Warn(msg string, fields ...any)  {}
+func (n *noopLogger) Error(msg string, fields ...any) {}
 
 func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts := &SearchOptions{
