@@ -159,6 +159,15 @@ func extractBaseError(err error) *BaseError {
 	}
 }
 
+// setErrorMetadata sets transient flag, HTTP status code, and error subcode on any typed error.
+func setErrorMetadata(err error, isTransient bool, httpStatusCode, errorSubcode int) {
+	if base := extractBaseError(err); base != nil {
+		base.IsTransient = isTransient
+		base.HTTPStatusCode = httpStatusCode
+		base.ErrorSubcode = errorSubcode
+	}
+}
+
 // IsAuthenticationError checks if an error is an authentication error.
 // This is useful for implementing retry logic or handling authentication failures.
 // Returns true if the error is of type *AuthenticationError.

@@ -610,13 +610,6 @@ func (c *Client) waitForContainerReady(ctx context.Context, containerID Containe
 			return fmt.Errorf("container processing failed with error status")
 		case ContainerStatusExpired:
 			return fmt.Errorf("container expired before it could be published")
-		case ContainerStatusInProgress, ContainerStatusPublished:
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(pollInterval):
-				continue
-			}
 		default:
 			select {
 			case <-ctx.Done():

@@ -56,13 +56,7 @@ func (c *Client) handleAPIError(resp *Response) error {
 				resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 			}
 
-			// Set IsTransient, HTTPStatusCode, and ErrorSubcode on the base error
-			if base := extractBaseError(resultErr); base != nil {
-				base.IsTransient = isTransient
-				base.HTTPStatusCode = resp.StatusCode
-				base.ErrorSubcode = apiErr.Error.ErrorSubcode
-			}
-
+			setErrorMetadata(resultErr, isTransient, resp.StatusCode, apiErr.Error.ErrorSubcode)
 			return resultErr
 		}
 	}
@@ -75,6 +69,6 @@ func (c *Client) handleAPIError(resp *Response) error {
 	}
 
 	fallbackErr := NewAPIError(resp.StatusCode, message, details, resp.RequestID)
-	fallbackErr.HTTPStatusCode = resp.StatusCode
+	setErrorMetadata(fallbackErr, false, resp.StatusCode, 0)
 	return fallbackErr
 }

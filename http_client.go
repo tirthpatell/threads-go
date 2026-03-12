@@ -294,9 +294,7 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	// Create specific error types based on status code
 	var resultErr error
 	switch resp.StatusCode {
-	case 401:
-		resultErr = NewAuthenticationError(errorCode, message, details)
-	case 403:
+	case 401, 403:
 		resultErr = NewAuthenticationError(errorCode, message, details)
 	case 429:
 		retryAfter := time.Duration(0)
@@ -322,18 +320,11 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 		resultErr = NewRateLimitError(errorCode, message, details, retryAfter)
 	case 400, 422:
 		resultErr = NewValidationError(errorCode, message, details, "")
-	case 500, 502, 503, 504:
-		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	default:
 		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	}
 
-	// Set IsTransient, HTTPStatusCode, and ErrorSubcode on the base error
-	if base := extractBaseError(resultErr); base != nil {
-		base.IsTransient = isTransient
-		base.HTTPStatusCode = resp.StatusCode
-		base.ErrorSubcode = apiErr.Error.ErrorSubcode
-	}
+	setErrorMetadata(resultErr, isTransient, resp.StatusCode, apiErr.Error.ErrorSubcode)
 
 	return resultErr
 }
