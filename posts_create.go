@@ -138,11 +138,26 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 		return nil, err
 	}
 
-	// Wait for all child containers to be ready before creating the carousel container
+	// Wait for all child containers to be ready in parallel
 	// The Threads API requires child containers to be in FINISHED status
+	type childResult struct {
+		index int
+		id    string
+		err   error
+	}
+	results := make(chan childResult, len(content.Children))
+
 	for i, childID := range content.Children {
-		if err := c.waitForContainerReady(ctx, ContainerID(childID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval); err != nil {
-			return nil, fmt.Errorf("child container %d (%s) not ready: %w", i+1, childID, err)
+		go func(idx int, cID string) {
+			err := c.waitForContainerReady(ctx, ContainerID(cID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval)
+			results <- childResult{index: idx, id: cID, err: err}
+		}(i, childID)
+	}
+
+	for range content.Children {
+		result := <-results
+		if result.err != nil {
+			return nil, fmt.Errorf("child container %d (%s) not ready: %w", result.index+1, result.id, result.err)
 		}
 	}
 
@@ -576,7 +591,8 @@ func (c *Client) GetContainerStatus(ctx context.Context, containerID ContainerID
 }
 
 // waitForContainerReady polls the container status until it's ready to be published
-// Returns an error if the container fails or times out
+// Returns an error if the container fails or times out. Respects context cancellation
+// by using select with ctx.Done() instead of bare time.Sleep.
 func (c *Client) waitForContainerReady(ctx context.Context, containerID ContainerID, maxAttempts int, pollInterval time.Duration) error {
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		status, err := c.GetContainerStatus(ctx, containerID)
@@ -586,7 +602,6 @@ func (c *Client) waitForContainerReady(ctx context.Context, containerID Containe
 
 		switch status.Status {
 		case ContainerStatusFinished:
-			// Container is ready to be published
 			return nil
 		case ContainerStatusError:
 			if status.ErrorMessage != "" {
@@ -596,13 +611,19 @@ func (c *Client) waitForContainerReady(ctx context.Context, containerID Containe
 		case ContainerStatusExpired:
 			return fmt.Errorf("container expired before it could be published")
 		case ContainerStatusInProgress, ContainerStatusPublished:
-			// Still processing or already published, wait and retry
-			time.Sleep(pollInterval)
-			continue
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pollInterval):
+				continue
+			}
 		default:
-			// Unknown status, wait and retry
-			time.Sleep(pollInterval)
-			continue
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pollInterval):
+				continue
+			}
 		}
 	}
 

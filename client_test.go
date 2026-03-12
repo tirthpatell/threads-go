@@ -1,6 +1,7 @@
 package threads
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -705,6 +706,56 @@ func TestIsRetryableErrorWithTransientAPIError(t *testing.T) {
 	}
 }
 
+func TestIsTransientErrorHelper(t *testing.T) {
+	transientErr := NewAPIError(2, "Unexpected error", "details", "trace")
+	transientErr.IsTransient = true
+
+	if !IsTransientError(transientErr) {
+		t.Error("Expected IsTransientError to return true")
+	}
+
+	nonTransientErr := NewValidationError(24, "Not found", "details", "")
+	if IsTransientError(nonTransientErr) {
+		t.Error("Expected IsTransientError to return false")
+	}
+
+	if IsTransientError(fmt.Errorf("random error")) {
+		t.Error("Expected IsTransientError to return false for non-threads error")
+	}
+}
+
+func TestErrorSubcode(t *testing.T) {
+	apiErr := NewAPIError(24, "Resource not found", "details", "trace")
+	apiErr.ErrorSubcode = 4279009
+
+	if apiErr.ErrorSubcode != 4279009 {
+		t.Errorf("Expected ErrorSubcode 4279009, got %d", apiErr.ErrorSubcode)
+	}
+}
+
+func TestCreateErrorFromResponseParsesErrorSubcode(t *testing.T) {
+	h := &HTTPClient{
+		logger:      &noopLogger{},
+		retryConfig: &RetryConfig{MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2},
+	}
+
+	body := []byte(`{"error":{"message":"Media not found","type":"OAuthException","code":24,"is_transient":false,"error_subcode":4279009}}`)
+	resp := &Response{
+		Body:       body,
+		StatusCode: 400,
+		RequestID:  "test-trace",
+	}
+
+	err := h.createErrorFromResponse(resp)
+	var valErr *ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("Expected ValidationError, got %T: %v", err, err)
+	}
+	if valErr.ErrorSubcode != 4279009 {
+		t.Errorf("Expected ErrorSubcode 4279009, got %d", valErr.ErrorSubcode)
+	}
+}
+
 func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts := &SearchOptions{
 		AuthorUsername: "testuser",
@@ -719,5 +770,16 @@ func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts.AuthorUsername = "@testuser"
 	if opts.AuthorUsername != "@testuser" {
 		t.Errorf("Expected AuthorUsername to be '@testuser', got '%s'", opts.AuthorUsername)
+	}
+}
+
+func TestWaitForContainerReadyRespectsContext(t *testing.T) {
+	client := &Client{}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	err := client.waitForContainerReady(ctx, ContainerID("fake-id"), 100, 1*time.Second)
+	if err == nil {
+		t.Error("Expected error when context is cancelled")
 	}
 }
