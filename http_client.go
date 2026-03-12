@@ -270,10 +270,11 @@ func (h *HTTPClient) parseRateLimitHeaders(headers http.Header) *RateLimitInfo {
 func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	var apiErr struct {
 		Error struct {
-			Message     string `json:"message"`
-			Type        string `json:"type"`
-			Code        int    `json:"code"`
-			IsTransient bool   `json:"is_transient"`
+			Message      string `json:"message"`
+			Type         string `json:"type"`
+			Code         int    `json:"code"`
+			IsTransient  bool   `json:"is_transient"`
+			ErrorSubcode int    `json:"error_subcode"`
 		} `json:"error"`
 	}
 
@@ -334,10 +335,11 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	}
 
-	// Set IsTransient and HTTPStatusCode on the base error
+	// Set IsTransient, HTTPStatusCode, and ErrorSubcode on the base error
 	if base := extractBaseError(resultErr); base != nil {
 		base.IsTransient = isTransient
 		base.HTTPStatusCode = resp.StatusCode
+		base.ErrorSubcode = apiErr.Error.ErrorSubcode
 	}
 
 	return resultErr

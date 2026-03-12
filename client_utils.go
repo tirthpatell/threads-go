@@ -20,11 +20,12 @@ func (c *Client) getUserID() string {
 func (c *Client) handleAPIError(resp *Response) error {
 	var apiErr struct {
 		Error struct {
-			Message     string `json:"message"`
-			Type        string `json:"type"`
-			Code        int    `json:"code"`
-			IsTransient bool   `json:"is_transient"`
-			ErrorData   struct {
+			Message      string `json:"message"`
+			Type         string `json:"type"`
+			Code         int    `json:"code"`
+			IsTransient  bool   `json:"is_transient"`
+			ErrorSubcode int    `json:"error_subcode"`
+			ErrorData    struct {
 				Details string `json:"details"`
 			} `json:"error_data"`
 		} `json:"error"`
@@ -55,10 +56,11 @@ func (c *Client) handleAPIError(resp *Response) error {
 				resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 			}
 
-			// Set IsTransient and HTTPStatusCode on the base error
+			// Set IsTransient, HTTPStatusCode, and ErrorSubcode on the base error
 			if base := extractBaseError(resultErr); base != nil {
 				base.IsTransient = isTransient
 				base.HTTPStatusCode = resp.StatusCode
+				base.ErrorSubcode = apiErr.Error.ErrorSubcode
 			}
 
 			return resultErr

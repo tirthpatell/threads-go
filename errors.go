@@ -15,6 +15,7 @@ type BaseError struct {
 	Details        string `json:"details,omitempty"`
 	IsTransient    bool   `json:"is_transient,omitempty"`
 	HTTPStatusCode int    `json:"http_status_code,omitempty"`
+	ErrorSubcode   int    `json:"error_subcode,omitempty"`
 }
 
 // Error implements the error interface
@@ -201,4 +202,13 @@ func IsAPIError(err error) bool {
 	var APIError *APIError
 	ok := errors.As(err, &APIError)
 	return ok
+}
+
+// IsTransientError checks if an error is marked as transient by the API.
+// Transient errors are temporary and the request can be retried.
+func IsTransientError(err error) bool {
+	if baseErr := extractBaseError(err); baseErr != nil {
+		return baseErr.IsTransient
+	}
+	return false
 }
