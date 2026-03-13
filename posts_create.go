@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -156,16 +157,19 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 		}(i, childID)
 	}
 
-	// Collect all results, then report the lowest-indexed failure for deterministic behavior.
-	// Cancel eagerly on first error so remaining goroutines stop polling.
+	// Collect all results, then report the lowest-indexed failure for deterministic behavior
 	errs := make([]error, len(content.Children))
 	for range content.Children {
 		result := <-results
 		errs[result.index] = result.err
-		if result.err != nil {
-			cancelChildren()
+	}
+	// Report the first real failure, skipping cancellation side-effects from siblings
+	for i, err := range errs {
+		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("child container %d (%s) not ready: %w", i+1, content.Children[i], err)
 		}
 	}
+	// Fallback: if only cancellation errors exist, report the first one
 	for i, err := range errs {
 		if err != nil {
 			return nil, fmt.Errorf("child container %d (%s) not ready: %w", i+1, content.Children[i], err)
