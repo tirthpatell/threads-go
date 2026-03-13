@@ -329,20 +329,22 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	return resultErr
 }
 
-// wrapNetworkError wraps network errors with appropriate error types
+// wrapNetworkError wraps network errors with appropriate error types.
+// The original error is preserved as the Cause, so errors.Is/errors.As
+// can inspect it (e.g., to detect context.Canceled).
 func (h *HTTPClient) wrapNetworkError(err error) error {
 	// Check for timeout errors
 	if timeoutErr, ok := err.(interface{ Timeout() bool }); ok && timeoutErr.Timeout() {
-		return NewNetworkError(0, "Request timeout", err.Error(), true)
+		return NewNetworkErrorWithCause(0, "Request timeout", err.Error(), true, err)
 	}
 
 	// Check for temporary errors
 	if tempErr, ok := err.(interface{ Temporary() bool }); ok && tempErr.Temporary() {
-		return NewNetworkError(0, "Temporary network error", err.Error(), true)
+		return NewNetworkErrorWithCause(0, "Temporary network error", err.Error(), true, err)
 	}
 
 	// Default to permanent network error
-	return NewNetworkError(0, "Network error", err.Error(), false)
+	return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
 }
 
 // isRetryableError determines if an error should trigger a retry

@@ -99,13 +99,26 @@ func NewValidationError(code int, message, details, field string) *ValidationErr
 // error is likely transient and the request can be retried.
 type NetworkError struct {
 	*BaseError
-	Temporary bool `json:"temporary"`
+	Temporary bool  `json:"temporary"`
+	Cause     error `json:"-"`
+}
+
+// Unwrap returns the underlying error, enabling errors.Is/errors.As
+// to inspect the original cause (e.g., context.Canceled).
+func (e *NetworkError) Unwrap() error {
+	return e.Cause
 }
 
 // NewNetworkError creates a new network error with temporary status.
 // Set temporary to true for transient errors that may succeed on retry.
 // The code may be 0 for client-side network failures.
 func NewNetworkError(code int, message, details string, temporary bool) *NetworkError {
+	return NewNetworkErrorWithCause(code, message, details, temporary, nil)
+}
+
+// NewNetworkErrorWithCause creates a new network error that wraps an underlying cause.
+// The cause is accessible via Unwrap(), enabling errors.Is/errors.As on the original error.
+func NewNetworkErrorWithCause(code int, message, details string, temporary bool, cause error) *NetworkError {
 	return &NetworkError{
 		BaseError: &BaseError{
 			Code:    code,
@@ -114,6 +127,7 @@ func NewNetworkError(code int, message, details string, temporary bool) *Network
 			Details: details,
 		},
 		Temporary: temporary,
+		Cause:     cause,
 	}
 }
 
