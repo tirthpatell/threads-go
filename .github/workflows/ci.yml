@@ -51,7 +51,7 @@ jobs:
         fi
 
     - name: Run tests with coverage
-      run: go test -short -coverprofile=coverage.out ./...
+      run: go test -short -race -coverprofile=coverage.out ./...
 
     - name: Extract coverage percentage
       if: github.ref == 'refs/heads/main' && matrix.go-version == '1.24'

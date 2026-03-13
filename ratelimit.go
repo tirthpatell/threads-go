@@ -101,6 +101,10 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 
 	rl.logRateLimitWait(waitTime)
 
+	// Capture resetTime before releasing lock to detect if MarkRateLimited()
+	// was called with a later reset time while we were sleeping
+	originalResetTime := rl.resetTime
+
 	// Release lock before sleeping so other goroutines aren't blocked
 	rl.mu.Unlock()
 
@@ -110,7 +114,11 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 		return ctx.Err()
 	case <-time.After(waitTime):
 		rl.mu.Lock()
-		rl.rateLimited = false
+		// Only clear rateLimited if MarkRateLimited() wasn't called with a later
+		// reset time while we were sleeping
+		if !rl.resetTime.After(originalResetTime) {
+			rl.rateLimited = false
+		}
 		rl.lastRequestTime = time.Now()
 		rl.mu.Unlock()
 		return nil
