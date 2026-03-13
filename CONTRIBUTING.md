@@ -4,7 +4,7 @@ Thank you for contributing! This guide helps you get started with development.
 
 ## Prerequisites
 
-- Go 1.21 or later
+- Go 1.21 or later (tested on 1.21-1.24)
 - Git
 - Threads API credentials (for testing)
 
@@ -26,6 +26,9 @@ export THREADS_ACCESS_TOKEN="your-token"
 
 # Run tests
 go test ./...
+go test -race ./...
+
+# Run integration tests (requires credentials)
 go test ./tests/integration/...
 ```
 

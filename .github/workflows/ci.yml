@@ -54,7 +54,10 @@ jobs:
         fi
 
     - name: Run tests with coverage
-      run: go test -short -race -coverprofile=coverage.out ./...
+      # -coverpkg scopes coverage to the library package only, excluding
+      # examples/ and tests/integration/ which have no unit tests and
+      # would otherwise drag the reported percentage down.
+      run: go test -short -race -coverprofile=coverage.out -coverpkg=github.com/tirthpatell/threads-go ./...
 
     - name: Extract coverage percentage
       if: github.ref == 'refs/heads/main' && matrix.go-version == '1.24'

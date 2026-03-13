@@ -91,8 +91,14 @@ func main() {
 	getUserReplyHistory(client, me.ID)
 	fmt.Println()
 
-	// Example 7: Advanced reply options
-	fmt.Println("Example 7: Advanced Reply Features")
+	// Example 7: Reply approvals
+	fmt.Println("Example 7: Reply Approvals")
+	fmt.Println("==========================")
+	demonstrateReplyApprovals(client)
+	fmt.Println()
+
+	// Example 8: Advanced reply options
+	fmt.Println("Example 8: Advanced Reply Features")
 	fmt.Println("==================================")
 	demonstrateAdvancedReplyFeatures(client, originalPost.ID)
 	fmt.Println()
@@ -364,6 +370,23 @@ func getUserReplyHistory(client *threads.Client, userID string) {
 			fmt.Printf("     Replied To: %s\n", reply.RepliedTo.ID)
 		}
 	}
+}
+
+func demonstrateReplyApprovals(_ *threads.Client) {
+	fmt.Println(" Reply approvals allow you to review replies before they appear")
+	fmt.Println()
+	fmt.Println(" Usage:")
+	fmt.Println("   // Approve a pending reply")
+	fmt.Println("   err := client.ApprovePendingReply(ctx, threads.PostID(\"reply-id\"))")
+	fmt.Println()
+	fmt.Println("   // Ignore a pending reply")
+	fmt.Println("   err := client.IgnorePendingReply(ctx, threads.PostID(\"reply-id\"))")
+	fmt.Println()
+	fmt.Println("   // Enable reply approvals when creating a post")
+	fmt.Println("   content := &threads.TextPostContent{")
+	fmt.Println("       Text:                 \"Post with reply approvals\",")
+	fmt.Println("       EnableReplyApprovals: true,")
+	fmt.Println("   }")
 }
 
 func demonstrateAdvancedReplyFeatures(client *threads.Client, postID string) {
