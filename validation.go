@@ -89,10 +89,10 @@ func (v *Validator) ValidateTextAttachment(textAttachment *TextAttachment) error
 			"text_attachment.plaintext")
 	}
 
-	if len(textAttachment.Plaintext) > MaxTextAttachmentLength {
+	if utf8.RuneCountInString(textAttachment.Plaintext) > MaxTextAttachmentLength {
 		return NewValidationError(400,
 			"Text attachment plaintext too long",
-			fmt.Sprintf("Text attachment plaintext is limited to %d characters (currently %d)", MaxTextAttachmentLength, len(textAttachment.Plaintext)),
+			fmt.Sprintf("Text attachment plaintext is limited to %d characters (currently %d)", MaxTextAttachmentLength, utf8.RuneCountInString(textAttachment.Plaintext)),
 			"text_attachment.plaintext")
 	}
 
