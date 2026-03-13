@@ -157,11 +157,14 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 		}(i, childID)
 	}
 
-	// Collect all results, then report the lowest-indexed failure for deterministic behavior
+	// Collect all results; cancel siblings as soon as any failure is seen
 	errs := make([]error, len(content.Children))
 	for range content.Children {
 		result := <-results
 		errs[result.index] = result.err
+		if result.err != nil {
+			cancelChildren()
+		}
 	}
 	// Report the first real failure, skipping cancellation side-effects from siblings
 	for i, err := range errs {

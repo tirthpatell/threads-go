@@ -355,7 +355,7 @@ func (h *HTTPClient) isRetryableError(err error) bool {
 	// Temporary network errors are retry-able
 	var netErr *NetworkError
 	if errors.As(err, &netErr) {
-		return netErr.Temporary
+		return netErr.Temporary || netErr.IsTransient
 	}
 
 	// Check base error for transient flag or 5xx HTTP status
