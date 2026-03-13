@@ -114,11 +114,13 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 		return ctx.Err()
 	case <-time.After(waitTime):
 		rl.mu.Lock()
-		// Only clear rateLimited if MarkRateLimited() wasn't called with a later
-		// reset time while we were sleeping
-		if !rl.resetTime.After(originalResetTime) {
-			rl.rateLimited = false
+		// If MarkRateLimited() was called with a later reset time while we
+		// were sleeping, re-wait for the new deadline instead of proceeding
+		if rl.resetTime.After(originalResetTime) {
+			rl.mu.Unlock()
+			return rl.Wait(ctx)
 		}
+		rl.rateLimited = false
 		rl.lastRequestTime = time.Now()
 		rl.mu.Unlock()
 		return nil
