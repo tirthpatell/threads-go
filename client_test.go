@@ -682,13 +682,6 @@ func TestCreateErrorFromResponseParsesIsTransient(t *testing.T) {
 	}
 }
 
-type noopLogger struct{}
-
-func (n *noopLogger) Debug(msg string, fields ...any) {}
-func (n *noopLogger) Info(msg string, fields ...any)  {}
-func (n *noopLogger) Warn(msg string, fields ...any)  {}
-func (n *noopLogger) Error(msg string, fields ...any) {}
-
 func TestIsRetryableErrorWithTransientAPIError(t *testing.T) {
 	h := &HTTPClient{
 		logger:      &noopLogger{},
