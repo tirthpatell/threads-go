@@ -270,6 +270,7 @@ func (rl *RateLimiter) Reset() {
 	rl.remaining = rl.limit
 	rl.resetTime = time.Now().Add(time.Hour)
 	rl.lastRequestTime = time.Time{}
+	rl.rateLimited = false
 
 	// Drain the queue
 	for len(rl.requestQueue) > 0 {

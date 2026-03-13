@@ -58,13 +58,23 @@ func NewHTTPClient(config *Config, rateLimiter *RateLimiter) *HTTPClient {
 		Timeout: config.HTTPTimeout,
 	}
 
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = "https://graph.threads.net"
+	}
+
+	userAgent := config.UserAgent
+	if userAgent == "" {
+		userAgent = DefaultUserAgent
+	}
+
 	return &HTTPClient{
 		client:      httpClient,
 		logger:      config.Logger,
 		retryConfig: config.RetryConfig,
 		rateLimiter: rateLimiter,
-		baseURL:     "https://graph.threads.net",
-		userAgent:   DefaultUserAgent,
+		baseURL:     baseURL,
+		userAgent:   userAgent,
 	}
 }
 
