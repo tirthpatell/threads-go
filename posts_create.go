@@ -156,10 +156,15 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 		}(i, childID)
 	}
 
+	// Collect all results, then report the lowest-indexed failure for deterministic behavior
+	errs := make([]error, len(content.Children))
 	for range content.Children {
 		result := <-results
-		if result.err != nil {
-			return nil, fmt.Errorf("child container %d (%s) not ready: %w", result.index+1, result.id, result.err)
+		errs[result.index] = result.err
+	}
+	for i, err := range errs {
+		if err != nil {
+			return nil, fmt.Errorf("child container %d (%s) not ready: %w", i+1, content.Children[i], err)
 		}
 	}
 
