@@ -60,13 +60,8 @@ func NewRateLimiter(config *RateLimiterConfig) *RateLimiter {
 // ShouldWait returns true if we should wait before making a request
 // Only returns true if we've been explicitly rate limited by the API
 func (rl *RateLimiter) ShouldWait() bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	// Clear rate limited flag if the window has reset
-	if time.Now().After(rl.resetTime) {
-		rl.rateLimited = false
-	}
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
 
 	// Only wait if we've been rate limited and the rate limit hasn't reset yet
 	return rl.rateLimited && time.Now().Before(rl.resetTime)
@@ -75,7 +70,6 @@ func (rl *RateLimiter) ShouldWait() bool {
 // Wait blocks until it's safe to make a request, only when actually rate limited
 func (rl *RateLimiter) Wait(ctx context.Context) error {
 	rl.mu.Lock()
-	defer rl.mu.Unlock()
 
 	// Check if rate limit window has reset
 	if time.Now().After(rl.resetTime) {
@@ -83,12 +77,14 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 		rl.resetTime = time.Now().Add(time.Hour) // Reset to 1 hour from now
 		rl.rateLimited = false                   // Clear rate limited flag
 		rl.logRateLimitReset()
+		rl.mu.Unlock()
 		return nil // No need to wait if window has reset
 	}
 
 	// Only wait if we've been explicitly rate limited
 	if !rl.rateLimited {
 		rl.lastRequestTime = time.Now()
+		rl.mu.Unlock()
 		return nil
 	}
 
@@ -105,14 +101,18 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 
 	rl.logRateLimitWait(waitTime)
 
+	// Release lock before sleeping so other goroutines aren't blocked
+	rl.mu.Unlock()
+
 	// Wait for either the context to be cancelled or the wait time to elapse
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-time.After(waitTime):
-		// After waiting, clear the rate limited flag
+		rl.mu.Lock()
 		rl.rateLimited = false
 		rl.lastRequestTime = time.Now()
+		rl.mu.Unlock()
 		return nil
 	}
 }
