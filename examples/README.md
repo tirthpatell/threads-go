@@ -58,6 +58,8 @@ cd post-creation && go run main.go
 - Text, image, video posts
 - Carousel posts (multiple media)
 - Quote posts and reposts
+- GIF posts (GIPHY)
+- Ghost posts (auto-expiring)
 - Advanced options (reply controls, tags)
 
 ### Reply Management (`reply-management/`)
@@ -70,6 +72,7 @@ cd reply-management && go run main.go
 - Create and retrieve replies
 - Conversation threading
 - Reply moderation (hide/unhide)
+- Reply approvals (approve/ignore pending replies)
 - Pagination and sorting
 
 ### Insights & Analytics (`insights/`)

@@ -5,14 +5,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tirthpatell/2c608589294aed9aa900256daeec0fd4/raw/coverage.json)](https://github.com/tirthpatell/threads-go/actions)
 
-Production-ready Go client for the Threads API with complete endpoint coverage, OAuth 2.0 authentication, rate limiting, and comprehensive error handling.
+Unofficial, production-ready Go client for the [Threads API](https://developers.facebook.com/docs/threads) with complete endpoint coverage, OAuth 2.0 authentication, rate limiting, and comprehensive error handling. Not affiliated with or endorsed by Meta.
+
+Requires Go 1.21+. Tested on Go 1.21-1.24.
 
 ## Features
 
-- Complete API coverage (posts, users, replies, insights, locations)
+- Complete API coverage (posts, users, replies, insights, locations, search)
+- GIF attachments (GIPHY), ghost posts, and reply approvals
+- Fluent `ContainerBuilder` for advanced post creation
 - OAuth 2.0 flow and existing token support
 - Intelligent rate limiting with exponential backoff
-- Type-safe error handling
+- Type-safe error handling with transient error detection
 - Thread-safe concurrent usage
 - Comprehensive test coverage
 
@@ -56,8 +60,9 @@ authURL := client.GetAuthURL(config.Scopes)
 // Redirect user to authURL
 
 // Exchange authorization code for token
-err = client.ExchangeCodeForToken("auth-code-from-callback")
-err = client.GetLongLivedToken() // Convert to long-lived token
+ctx := context.Background()
+err = client.ExchangeCodeForToken(ctx, "auth-code-from-callback")
+err = client.GetLongLivedToken(ctx) // Convert to long-lived token
 ```
 
 ### Environment Variables
@@ -101,7 +106,7 @@ imagePost, err := client.CreateImagePost(ctx, &threads.ImagePostContent{
 
 // Get posts
 post, err := client.GetPost(ctx, threads.PostID("123"))
-posts, err := client.GetUserPosts(ctx, threads.UserID("456"), &threads.PostsOptions{Limit: 25})
+posts, err := client.GetUserPosts(ctx, threads.UserID("456"), &threads.PaginationOptions{Limit: 25})
 
 // Delete post
 err = client.DeletePost(ctx, threads.PostID("123"))
@@ -164,6 +169,56 @@ tagResults, err := client.KeywordSearch(ctx, "#technology", &threads.SearchOptio
 
 // Location search
 locations, err := client.SearchLocations(ctx, "New York", nil, nil)
+```
+
+### GIF Posts
+
+```go
+// Create a post with a GIF attachment (GIPHY)
+gifPost, err := client.CreateTextPost(ctx, &threads.TextPostContent{
+    Text: "Check out this GIF!",
+    GIFAttachment: &threads.GIFAttachment{
+        GIFID:    "giphy-gif-id",
+        Provider: threads.GIFProviderGiphy,
+    },
+})
+```
+
+> Note: Tenor support is deprecated and will be sunset on March 31, 2026. Use GIPHY instead.
+
+### Ghost Posts
+
+```go
+// Create a ghost post (auto-expiring)
+ghost, err := client.CreateTextPost(ctx, &threads.TextPostContent{
+    Text:        "This will disappear!",
+    IsGhostPost: true,
+})
+
+// Retrieve a user's ghost posts
+ghosts, err := client.GetUserGhostPosts(ctx, userID, nil)
+```
+
+### Reply Approvals
+
+```go
+// Approve or ignore pending replies
+err = client.ApprovePendingReply(ctx, threads.PostID("reply-id"))
+err = client.IgnorePendingReply(ctx, threads.PostID("reply-id"))
+```
+
+### Container Builder
+
+For advanced post creation, use the fluent `ContainerBuilder`:
+
+```go
+builder := threads.NewContainerBuilder().
+    SetMediaType("TEXT").
+    SetText("Hello from the builder!").
+    SetReplyControl(threads.ReplyControlFollowersOnly).
+    SetTopicTag("golang").
+    SetLocationID("location-id")
+params := builder.Build()
 ```
 
 ### Pagination & Iterators
@@ -231,6 +286,8 @@ case threads.IsRateLimitError(err):
 case threads.IsValidationError(err):
     validationErr := err.(*threads.ValidationError)
     log.Printf("Invalid %s: %s", validationErr.Field, err.Error())
+case threads.IsTransientError(err):
+    // Safe to retry — transient API error
 }
 ```
 

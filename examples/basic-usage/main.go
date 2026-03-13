@@ -112,7 +112,7 @@ post, err := client.CreateImagePost(ctx, &threads.ImagePostContent{
 
 	fmt.Println("Quote post:")
 	fmt.Printf(`
-post, err := client.CreateQuotePost(ctx, &threads.QuotePostContent{
+post, err := client.CreateTextPost(ctx, &threads.TextPostContent{
     Text:         "Adding my thoughts to this",
     QuotedPostID: "existing_post_id",
 })

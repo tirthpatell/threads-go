@@ -83,9 +83,21 @@ func main() {
 	createRepost(client)
 	fmt.Println()
 
-	// Example 8: Error handling
-	fmt.Println("Example 8: Error Handling")
-	fmt.Println("========================")
+	// Example 8: GIF post
+	fmt.Println("Example 8: GIF Post")
+	fmt.Println("===================")
+	createGIFPost(client)
+	fmt.Println()
+
+	// Example 9: Ghost post
+	fmt.Println("Example 9: Ghost Post")
+	fmt.Println("=====================")
+	createGhostPost(client)
+	fmt.Println()
+
+	// Example 10: Error handling
+	fmt.Println("Example 10: Error Handling")
+	fmt.Println("=========================")
 	demonstrateErrorHandling(client)
 	fmt.Println()
 
@@ -244,7 +256,7 @@ func createQuotePost(_ *threads.Client) {
 	fmt.Printf("   Reply control: %s\n", content.ReplyControl)
 
 	// Uncomment to actually create (requires real post ID):
-	// post, err := client.CreateQuotePost(content)
+	// post, err := client.CreateTextPost(ctx, content)
 	// if err != nil {
 	//     fmt.Printf(" Failed to create quote post: %v\n", err)
 	//     handlePostError(err)
@@ -267,7 +279,7 @@ func createRepost(_ *threads.Client) {
 	fmt.Printf("   Post ID to repost: %s\n", postIDToRepost)
 
 	// Uncomment to actually create (requires real post ID):
-	// post, err := client.RepostPost(postIDToRepost)
+	// post, err := client.RepostPost(ctx, threads.ConvertToPostID(postIDToRepost))
 	// if err != nil {
 	//     fmt.Printf(" Failed to create repost: %v\n", err)
 	//     handlePostError(err)
@@ -277,6 +289,60 @@ func createRepost(_ *threads.Client) {
 	// printPostInfo(post)
 
 	fmt.Println(" Replace 'example_post_id_to_repost' with a real post ID to create reposts")
+}
+
+func createGIFPost(client *threads.Client) {
+	ctx := context.Background()
+	content := &threads.TextPostContent{
+		Text: "Check out this GIF!",
+		GIFAttachment: &threads.GIFAttachment{
+			GIFID:    "your-giphy-gif-id",
+			Provider: threads.GIFProviderGiphy,
+		},
+	}
+
+	fmt.Printf(" GIF post structure:\n")
+	fmt.Printf("   Text: %s\n", content.Text)
+	fmt.Printf("   GIF ID: %s\n", content.GIFAttachment.GIFID)
+	fmt.Printf("   Provider: %s\n", content.GIFAttachment.Provider)
+
+	// Uncomment to actually create (requires real GIPHY GIF ID):
+	// post, err := client.CreateTextPost(ctx, content)
+	// if err != nil {
+	//     fmt.Printf(" Failed to create GIF post: %v\n", err)
+	//     handlePostError(err)
+	//     return
+	// }
+	// fmt.Println(" GIF post created successfully!")
+	// printPostInfo(post)
+	_ = ctx
+
+	fmt.Println(" Note: Tenor is deprecated (sunset March 31, 2026). Use GIFProviderGiphy instead.")
+}
+
+func createGhostPost(client *threads.Client) {
+	ctx := context.Background()
+	content := &threads.TextPostContent{
+		Text:        "This is a ghost post -- it will auto-expire!",
+		IsGhostPost: true,
+	}
+
+	fmt.Printf(" Ghost post structure:\n")
+	fmt.Printf("   Text: %s\n", content.Text)
+	fmt.Printf("   Is Ghost Post: %t\n", content.IsGhostPost)
+
+	// Uncomment to actually create:
+	// post, err := client.CreateTextPost(ctx, content)
+	// if err != nil {
+	//     fmt.Printf(" Failed to create ghost post: %v\n", err)
+	//     handlePostError(err)
+	//     return
+	// }
+	// fmt.Println(" Ghost post created successfully!")
+	// printPostInfo(post)
+	_ = ctx
+
+	fmt.Println(" Ghost posts auto-expire and can be retrieved with client.GetUserGhostPosts()")
 }
 
 func demonstrateErrorHandling(client *threads.Client) {
