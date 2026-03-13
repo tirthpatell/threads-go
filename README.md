@@ -3,6 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/tirthpatell/threads-go.svg)](https://pkg.go.dev/github.com/tirthpatell/threads-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tirthpatell/threads-go)](https://goreportcard.com/report/github.com/tirthpatell/threads-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tirthpatell/2c608589294aed9aa900256daeec0fd4/raw/coverage.json)](https://github.com/tirthpatell/threads-go/actions)
 
 Production-ready Go client for the Threads API with complete endpoint coverage, OAuth 2.0 authentication, rate limiting, and comprehensive error handling.
 

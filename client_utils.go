@@ -8,12 +8,11 @@ import (
 
 // getUserID extracts user ID from token info
 func (c *Client) getUserID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.tokenInfo != nil && c.tokenInfo.UserID != "" {
 		return c.tokenInfo.UserID
 	}
-
-	// If user ID is not in token info, we might need to call /me endpoint
-	// For now, return empty string to trigger an error
 	return ""
 }
 
