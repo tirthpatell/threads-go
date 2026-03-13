@@ -146,10 +146,12 @@ func (c *Client) CreateCarouselPost(ctx context.Context, content *CarouselPostCo
 		err   error
 	}
 	results := make(chan childResult, len(content.Children))
+	childCtx, cancelChildren := context.WithCancel(ctx)
+	defer cancelChildren()
 
 	for i, childID := range content.Children {
 		go func(idx int, cID string) {
-			err := c.waitForContainerReady(ctx, ContainerID(cID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval)
+			err := c.waitForContainerReady(childCtx, ContainerID(cID), DefaultContainerPollMaxAttempts, DefaultContainerPollInterval)
 			results <- childResult{index: idx, id: cID, err: err}
 		}(i, childID)
 	}

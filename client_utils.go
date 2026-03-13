@@ -3,6 +3,7 @@ package threads
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // getUserID extracts user ID from token info
@@ -48,7 +49,10 @@ func (c *Client) handleAPIError(resp *Response) error {
 			case 401, 403:
 				resultErr = NewAuthenticationError(errorCode, message, details)
 			case 429:
-				retryAfter := resp.RateLimit.RetryAfter
+				var retryAfter time.Duration
+				if resp.RateLimit != nil {
+					retryAfter = resp.RateLimit.RetryAfter
+				}
 				resultErr = NewRateLimitError(errorCode, message, details, retryAfter)
 			case 400, 422:
 				resultErr = NewValidationError(errorCode, message, details, "")

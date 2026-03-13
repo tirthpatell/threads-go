@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -722,6 +724,12 @@ func TestIsTransientErrorHelper(t *testing.T) {
 	if IsTransientError(fmt.Errorf("random error")) {
 		t.Error("Expected IsTransientError to return false for non-threads error")
 	}
+
+	// Wrapped transient error should still be detected
+	wrappedErr := fmt.Errorf("operation failed: %w", transientErr)
+	if !IsTransientError(wrappedErr) {
+		t.Error("Expected IsTransientError to return true for wrapped transient error")
+	}
 }
 
 func TestErrorSubcode(t *testing.T) {
@@ -774,12 +782,40 @@ func TestSearchOptionsAuthorUsername(t *testing.T) {
 }
 
 func TestWaitForContainerReadyRespectsContext(t *testing.T) {
-	client := &Client{}
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	// Serve IN_PROGRESS status so the poll loop blocks on the select
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write([]byte(`{"id":"fake-id","status":"IN_PROGRESS"}`))
+	}))
+	defer ts.Close()
+
+	config := NewConfig()
+	config.ClientID = "test"
+	config.ClientSecret = "test"
+	config.RedirectURI = "http://localhost"
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	// Point HTTP client at test server and set a valid token
+	client.httpClient.baseURL = ts.URL
+	client.tokenInfo = &TokenInfo{
+		AccessToken: "test-token",
+		TokenType:   "Bearer",
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
+		CreatedAt:   time.Now(),
+	}
+	client.accessToken = "test-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 	defer cancel()
 
-	err := client.waitForContainerReady(ctx, ContainerID("fake-id"), 100, 1*time.Second)
+	err = client.waitForContainerReady(ctx, ContainerID("fake-id"), 100, 1*time.Second)
 	if err == nil {
-		t.Error("Expected error when context is cancelled")
+		t.Fatal("Expected error when context times out")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Expected context.DeadlineExceeded, got: %v", err)
 	}
 }

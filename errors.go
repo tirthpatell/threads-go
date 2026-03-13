@@ -215,9 +215,27 @@ func IsAPIError(err error) bool {
 
 // IsTransientError checks if an error is marked as transient by the API.
 // Transient errors are temporary and the request can be retried.
+// Uses errors.As to support wrapped errors, consistent with other IsXxx helpers.
 func IsTransientError(err error) bool {
-	if baseErr := extractBaseError(err); baseErr != nil {
-		return baseErr.IsTransient
+	var authErr *AuthenticationError
+	if errors.As(err, &authErr) {
+		return authErr.IsTransient
+	}
+	var rateLimitErr *RateLimitError
+	if errors.As(err, &rateLimitErr) {
+		return rateLimitErr.IsTransient
+	}
+	var validationErr *ValidationError
+	if errors.As(err, &validationErr) {
+		return validationErr.IsTransient
+	}
+	var networkErr *NetworkError
+	if errors.As(err, &networkErr) {
+		return networkErr.IsTransient
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.IsTransient
 	}
 	return false
 }
