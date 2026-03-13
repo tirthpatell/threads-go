@@ -1,7 +1,11 @@
 package threads
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -609,6 +613,157 @@ func TestPendingRepliesOptionsApprovalStatus(t *testing.T) {
 	}
 }
 
+func TestErrorIsTransient(t *testing.T) {
+	apiErr := NewAPIError(2, "An unexpected error", "details", "trace-123")
+	apiErr.IsTransient = true
+	if !apiErr.IsTransient {
+		t.Error("Expected IsTransient to be true")
+	}
+	validErr := NewValidationError(400, "Bad request", "details", "field")
+	if validErr.IsTransient {
+		t.Error("Expected IsTransient to default to false")
+	}
+}
+
+func TestCreateErrorFromResponseParsesIsTransient(t *testing.T) {
+	h := &HTTPClient{
+		logger:      &noopLogger{},
+		retryConfig: &RetryConfig{MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2},
+	}
+
+	body := []byte(`{"error":{"message":"An unexpected error","type":"OAuthException","code":2,"is_transient":true}}`)
+	resp := &Response{
+		Body:       body,
+		StatusCode: 500,
+		RequestID:  "test-trace",
+	}
+
+	err := h.createErrorFromResponse(resp)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("Expected APIError, got %T: %v", err, err)
+	}
+	if !apiErr.IsTransient {
+		t.Error("Expected IsTransient to be true for transient API error")
+	}
+
+	body2 := []byte(`{"error":{"message":"Resource not found","type":"OAuthException","code":24,"is_transient":false}}`)
+	resp2 := &Response{
+		Body:       body2,
+		StatusCode: 400,
+		RequestID:  "test-trace-2",
+	}
+
+	err2 := h.createErrorFromResponse(resp2)
+	var valErr *ValidationError
+	if !errors.As(err2, &valErr) {
+		t.Fatalf("Expected ValidationError, got %T: %v", err2, err2)
+	}
+	if valErr.IsTransient {
+		t.Error("Expected IsTransient to be false for non-transient error")
+	}
+}
+
+type noopLogger struct{}
+
+func (n *noopLogger) Debug(msg string, fields ...any) {}
+func (n *noopLogger) Info(msg string, fields ...any)  {}
+func (n *noopLogger) Warn(msg string, fields ...any)  {}
+func (n *noopLogger) Error(msg string, fields ...any) {}
+
+func TestIsRetryableErrorWithTransientAPIError(t *testing.T) {
+	h := &HTTPClient{
+		logger:      &noopLogger{},
+		retryConfig: &RetryConfig{MaxRetries: 3, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2},
+	}
+
+	// API error with code 2 but HTTP status 500 — should be retryable
+	apiErr := NewAPIError(2, "An unexpected error", "details", "trace")
+	apiErr.HTTPStatusCode = 500
+	apiErr.IsTransient = true
+	if !h.isRetryableError(apiErr) {
+		t.Error("Expected transient API error with HTTP 500 to be retryable")
+	}
+
+	// API error with code 2, HTTP status 500, is_transient false — still retryable (5xx)
+	apiErr2 := NewAPIError(2, "An unexpected error", "details", "trace")
+	apiErr2.HTTPStatusCode = 500
+	if !h.isRetryableError(apiErr2) {
+		t.Error("Expected API error with HTTP 500 to be retryable regardless of is_transient")
+	}
+
+	// API error with code 24, HTTP status 400, not transient — NOT retryable
+	valErr := NewValidationError(24, "Resource not found", "details", "")
+	valErr.HTTPStatusCode = 400
+	if h.isRetryableError(valErr) {
+		t.Error("Expected non-transient 400 error to NOT be retryable")
+	}
+
+	// Transient error with non-5xx status — retryable because is_transient=true
+	transientErr := NewValidationError(2, "Unexpected error", "details", "")
+	transientErr.HTTPStatusCode = 400
+	transientErr.IsTransient = true
+	if !h.isRetryableError(transientErr) {
+		t.Error("Expected transient error to be retryable even with non-5xx HTTP status")
+	}
+}
+
+func TestIsTransientErrorHelper(t *testing.T) {
+	transientErr := NewAPIError(2, "Unexpected error", "details", "trace")
+	transientErr.IsTransient = true
+
+	if !IsTransientError(transientErr) {
+		t.Error("Expected IsTransientError to return true")
+	}
+
+	nonTransientErr := NewValidationError(24, "Not found", "details", "")
+	if IsTransientError(nonTransientErr) {
+		t.Error("Expected IsTransientError to return false")
+	}
+
+	if IsTransientError(fmt.Errorf("random error")) {
+		t.Error("Expected IsTransientError to return false for non-threads error")
+	}
+
+	// Wrapped transient error should still be detected
+	wrappedErr := fmt.Errorf("operation failed: %w", transientErr)
+	if !IsTransientError(wrappedErr) {
+		t.Error("Expected IsTransientError to return true for wrapped transient error")
+	}
+}
+
+func TestErrorSubcode(t *testing.T) {
+	apiErr := NewAPIError(24, "Resource not found", "details", "trace")
+	apiErr.ErrorSubcode = 4279009
+
+	if apiErr.ErrorSubcode != 4279009 {
+		t.Errorf("Expected ErrorSubcode 4279009, got %d", apiErr.ErrorSubcode)
+	}
+}
+
+func TestCreateErrorFromResponseParsesErrorSubcode(t *testing.T) {
+	h := &HTTPClient{
+		logger:      &noopLogger{},
+		retryConfig: &RetryConfig{MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2},
+	}
+
+	body := []byte(`{"error":{"message":"Media not found","type":"OAuthException","code":24,"is_transient":false,"error_subcode":4279009}}`)
+	resp := &Response{
+		Body:       body,
+		StatusCode: 400,
+		RequestID:  "test-trace",
+	}
+
+	err := h.createErrorFromResponse(resp)
+	var valErr *ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("Expected ValidationError, got %T: %v", err, err)
+	}
+	if valErr.ErrorSubcode != 4279009 {
+		t.Errorf("Expected ErrorSubcode 4279009, got %d", valErr.ErrorSubcode)
+	}
+}
+
 func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts := &SearchOptions{
 		AuthorUsername: "testuser",
@@ -623,5 +778,44 @@ func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts.AuthorUsername = "@testuser"
 	if opts.AuthorUsername != "@testuser" {
 		t.Errorf("Expected AuthorUsername to be '@testuser', got '%s'", opts.AuthorUsername)
+	}
+}
+
+func TestWaitForContainerReadyRespectsContext(t *testing.T) {
+	// Serve IN_PROGRESS status so the poll loop blocks on the select
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write([]byte(`{"id":"fake-id","status":"IN_PROGRESS"}`))
+	}))
+	defer ts.Close()
+
+	config := NewConfig()
+	config.ClientID = "test"
+	config.ClientSecret = "test"
+	config.RedirectURI = "http://localhost"
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	// Point HTTP client at test server and set a valid token
+	client.httpClient.baseURL = ts.URL
+	client.tokenInfo = &TokenInfo{
+		AccessToken: "test-token",
+		TokenType:   "Bearer",
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
+		CreatedAt:   time.Now(),
+	}
+	client.accessToken = "test-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+
+	err = client.waitForContainerReady(ctx, ContainerID("fake-id"), 100, 1*time.Second)
+	if err == nil {
+		t.Fatal("Expected error when context times out")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Expected context.DeadlineExceeded, got: %v", err)
 	}
 }

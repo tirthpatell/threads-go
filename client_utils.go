@@ -3,6 +3,7 @@ package threads
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // getUserID extracts user ID from token info
@@ -20,10 +21,12 @@ func (c *Client) getUserID() string {
 func (c *Client) handleAPIError(resp *Response) error {
 	var apiErr struct {
 		Error struct {
-			Message   string `json:"message"`
-			Type      string `json:"type"`
-			Code      int    `json:"code"`
-			ErrorData struct {
+			Message      string `json:"message"`
+			Type         string `json:"type"`
+			Code         int    `json:"code"`
+			IsTransient  bool   `json:"is_transient"`
+			ErrorSubcode int    `json:"error_subcode"`
+			ErrorData    struct {
 				Details string `json:"details"`
 			} `json:"error_data"`
 		} `json:"error"`
@@ -35,22 +38,30 @@ func (c *Client) handleAPIError(resp *Response) error {
 			message := apiErr.Error.Message
 			details := apiErr.Error.ErrorData.Details
 			errorCode := apiErr.Error.Code
+			isTransient := apiErr.Error.IsTransient
 			if errorCode == 0 {
 				errorCode = resp.StatusCode
 			}
 
 			// Return appropriate error type based on status code
+			var resultErr error
 			switch resp.StatusCode {
 			case 401, 403:
-				return NewAuthenticationError(errorCode, message, details)
+				resultErr = NewAuthenticationError(errorCode, message, details)
 			case 429:
-				retryAfter := resp.RateLimit.RetryAfter
-				return NewRateLimitError(errorCode, message, details, retryAfter)
+				var retryAfter time.Duration
+				if resp.RateLimit != nil {
+					retryAfter = resp.RateLimit.RetryAfter
+				}
+				resultErr = NewRateLimitError(errorCode, message, details, retryAfter)
 			case 400, 422:
-				return NewValidationError(errorCode, message, details, "")
+				resultErr = NewValidationError(errorCode, message, details, "")
 			default:
-				return NewAPIError(errorCode, message, details, resp.RequestID)
+				resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 			}
+
+			setErrorMetadata(resultErr, isTransient, resp.StatusCode, apiErr.Error.ErrorSubcode)
+			return resultErr
 		}
 	}
 
@@ -61,5 +72,7 @@ func (c *Client) handleAPIError(resp *Response) error {
 		details = details[:500] + "..."
 	}
 
-	return NewAPIError(resp.StatusCode, message, details, resp.RequestID)
+	fallbackErr := NewAPIError(resp.StatusCode, message, details, resp.RequestID)
+	setErrorMetadata(fallbackErr, false, resp.StatusCode, 0)
+	return fallbackErr
 }

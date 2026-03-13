@@ -9,10 +9,13 @@ import (
 // BaseError represents a base error type for all Threads API errors.
 // For error handling patterns, see: https://developers.facebook.com/docs/threads/troubleshooting
 type BaseError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Type    string `json:"type"`
-	Details string `json:"details,omitempty"`
+	Code           int    `json:"code"`
+	Message        string `json:"message"`
+	Type           string `json:"type"`
+	Details        string `json:"details,omitempty"`
+	IsTransient    bool   `json:"is_transient,omitempty"`
+	HTTPStatusCode int    `json:"http_status_code,omitempty"`
+	ErrorSubcode   int    `json:"error_subcode,omitempty"`
 }
 
 // Error implements the error interface
@@ -96,13 +99,26 @@ func NewValidationError(code int, message, details, field string) *ValidationErr
 // error is likely transient and the request can be retried.
 type NetworkError struct {
 	*BaseError
-	Temporary bool `json:"temporary"`
+	Temporary bool  `json:"temporary"`
+	Cause     error `json:"-"`
+}
+
+// Unwrap returns the underlying error, enabling errors.Is/errors.As
+// to inspect the original cause (e.g., context.Canceled).
+func (e *NetworkError) Unwrap() error {
+	return e.Cause
 }
 
 // NewNetworkError creates a new network error with temporary status.
 // Set temporary to true for transient errors that may succeed on retry.
 // The code may be 0 for client-side network failures.
 func NewNetworkError(code int, message, details string, temporary bool) *NetworkError {
+	return NewNetworkErrorWithCause(code, message, details, temporary, nil)
+}
+
+// NewNetworkErrorWithCause creates a new network error that wraps an underlying cause.
+// The cause is accessible via Unwrap(), enabling errors.Is/errors.As on the original error.
+func NewNetworkErrorWithCause(code int, message, details string, temporary bool, cause error) *NetworkError {
 	return &NetworkError{
 		BaseError: &BaseError{
 			Code:    code,
@@ -111,6 +127,7 @@ func NewNetworkError(code int, message, details string, temporary bool) *Network
 			Details: details,
 		},
 		Temporary: temporary,
+		Cause:     cause,
 	}
 }
 
@@ -134,6 +151,34 @@ func NewAPIError(code int, message, details, requestID string) *APIError {
 			Details: details,
 		},
 		RequestID: requestID,
+	}
+}
+
+// extractBaseError returns the embedded BaseError from any of the typed error types.
+// Returns nil if the error is not one of the known types.
+func extractBaseError(err error) *BaseError {
+	switch e := err.(type) {
+	case *AuthenticationError:
+		return e.BaseError
+	case *RateLimitError:
+		return e.BaseError
+	case *ValidationError:
+		return e.BaseError
+	case *NetworkError:
+		return e.BaseError
+	case *APIError:
+		return e.BaseError
+	default:
+		return nil
+	}
+}
+
+// setErrorMetadata sets transient flag, HTTP status code, and error subcode on any typed error.
+func setErrorMetadata(err error, isTransient bool, httpStatusCode, errorSubcode int) {
+	if base := extractBaseError(err); base != nil {
+		base.IsTransient = isTransient
+		base.HTTPStatusCode = httpStatusCode
+		base.ErrorSubcode = errorSubcode
 	}
 }
 
@@ -180,4 +225,31 @@ func IsAPIError(err error) bool {
 	var APIError *APIError
 	ok := errors.As(err, &APIError)
 	return ok
+}
+
+// IsTransientError checks if an error is marked as transient by the API.
+// Transient errors are temporary and the request can be retried.
+// Uses errors.As to support wrapped errors, consistent with other IsXxx helpers.
+func IsTransientError(err error) bool {
+	var authErr *AuthenticationError
+	if errors.As(err, &authErr) {
+		return authErr.IsTransient
+	}
+	var rateLimitErr *RateLimitError
+	if errors.As(err, &rateLimitErr) {
+		return rateLimitErr.IsTransient
+	}
+	var validationErr *ValidationError
+	if errors.As(err, &validationErr) {
+		return validationErr.IsTransient
+	}
+	var networkErr *NetworkError
+	if errors.As(err, &networkErr) {
+		return networkErr.IsTransient
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.IsTransient
+	}
+	return false
 }

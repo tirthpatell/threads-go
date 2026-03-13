@@ -119,13 +119,6 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 			h.rateLimiter.UpdateFromHeaders(resp.RateLimit)
 		}
 
-		// Check if we should retry based on status code
-		if h.shouldRetryStatus(resp.StatusCode) {
-			lastErr = h.createErrorFromResponse(resp)
-			h.logRetry(attempt, maxRetries, lastErr)
-			continue
-		}
-
 		return resp, nil
 	}
 
@@ -270,19 +263,23 @@ func (h *HTTPClient) parseRateLimitHeaders(headers http.Header) *RateLimitInfo {
 func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	var apiErr struct {
 		Error struct {
-			Message string `json:"message"`
-			Type    string `json:"type"`
-			Code    int    `json:"code"`
+			Message      string `json:"message"`
+			Type         string `json:"type"`
+			Code         int    `json:"code"`
+			IsTransient  bool   `json:"is_transient"`
+			ErrorSubcode int    `json:"error_subcode"`
 		} `json:"error"`
 	}
 
 	// Try to parse error response
 	message := fmt.Sprintf("HTTP %d", resp.StatusCode)
 	errorCode := resp.StatusCode
+	isTransient := false
 
 	if len(resp.Body) > 0 {
 		if err := json.Unmarshal(resp.Body, &apiErr); err == nil && apiErr.Error.Message != "" {
 			message = apiErr.Error.Message
+			isTransient = apiErr.Error.IsTransient
 			if apiErr.Error.Code != 0 {
 				errorCode = apiErr.Error.Code
 			}
@@ -295,11 +292,10 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 	}
 
 	// Create specific error types based on status code
+	var resultErr error
 	switch resp.StatusCode {
-	case 401:
-		return NewAuthenticationError(errorCode, message, details)
-	case 403:
-		return NewAuthenticationError(errorCode, message, details)
+	case 401, 403:
+		resultErr = NewAuthenticationError(errorCode, message, details)
 	case 429:
 		retryAfter := time.Duration(0)
 		resetTime := time.Time{}
@@ -321,30 +317,34 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 			h.rateLimiter.MarkRateLimited(resetTime)
 		}
 
-		return NewRateLimitError(errorCode, message, details, retryAfter)
+		resultErr = NewRateLimitError(errorCode, message, details, retryAfter)
 	case 400, 422:
-		return NewValidationError(errorCode, message, details, "")
-	case 500, 502, 503, 504:
-		return NewAPIError(errorCode, message, details, resp.RequestID)
+		resultErr = NewValidationError(errorCode, message, details, "")
 	default:
-		return NewAPIError(errorCode, message, details, resp.RequestID)
+		resultErr = NewAPIError(errorCode, message, details, resp.RequestID)
 	}
+
+	setErrorMetadata(resultErr, isTransient, resp.StatusCode, apiErr.Error.ErrorSubcode)
+
+	return resultErr
 }
 
-// wrapNetworkError wraps network errors with appropriate error types
+// wrapNetworkError wraps network errors with appropriate error types.
+// The original error is preserved as the Cause, so errors.Is/errors.As
+// can inspect it (e.g., to detect context.Canceled).
 func (h *HTTPClient) wrapNetworkError(err error) error {
 	// Check for timeout errors
 	if timeoutErr, ok := err.(interface{ Timeout() bool }); ok && timeoutErr.Timeout() {
-		return NewNetworkError(0, "Request timeout", err.Error(), true)
+		return NewNetworkErrorWithCause(0, "Request timeout", err.Error(), true, err)
 	}
 
 	// Check for temporary errors
 	if tempErr, ok := err.(interface{ Temporary() bool }); ok && tempErr.Temporary() {
-		return NewNetworkError(0, "Temporary network error", err.Error(), true)
+		return NewNetworkErrorWithCause(0, "Temporary network error", err.Error(), true, err)
 	}
 
 	// Default to permanent network error
-	return NewNetworkError(0, "Network error", err.Error(), false)
+	return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
 }
 
 // isRetryableError determines if an error should trigger a retry
@@ -357,28 +357,21 @@ func (h *HTTPClient) isRetryableError(err error) bool {
 	// Temporary network errors are retry-able
 	var netErr *NetworkError
 	if errors.As(err, &netErr) {
-		return netErr.Temporary
+		return netErr.Temporary || netErr.IsTransient
 	}
 
-	// Some API errors are retry-able (5xx status codes)
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.Code >= 500 && apiErr.Code < 600
+	// Check base error for transient flag or 5xx HTTP status
+	baseErr := extractBaseError(err)
+	if baseErr != nil {
+		if baseErr.IsTransient {
+			return true
+		}
+		if baseErr.HTTPStatusCode >= 500 && baseErr.HTTPStatusCode < 600 {
+			return true
+		}
 	}
 
 	return false
-}
-
-// shouldRetryStatus determines if a status code should trigger a retry
-func (h *HTTPClient) shouldRetryStatus(statusCode int) bool {
-	switch statusCode {
-	case 429: // Too Many Requests
-		return true
-	case 500, 502, 503, 504: // Server errors
-		return true
-	default:
-		return false
-	}
 }
 
 // logRequest logs the outgoing HTTP request
