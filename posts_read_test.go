@@ -50,6 +50,9 @@ func TestGetPost_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 404")
 	}
+	if !IsAPIError(err) {
+		t.Errorf("expected APIError, got %T", err)
+	}
 }
 
 func TestGetPost_ServerError(t *testing.T) {
@@ -59,6 +62,9 @@ func TestGetPost_ServerError(t *testing.T) {
 	_, err := client.GetPost(context.Background(), ConvertToPostID("123"))
 	if err == nil {
 		t.Fatal("expected error for 500")
+	}
+	if !IsAPIError(err) {
+		t.Errorf("expected APIError, got %T", err)
 	}
 }
 

@@ -35,6 +35,9 @@ func TestKeywordSearch_WithOptions(t *testing.T) {
 		if q.Get("q") != "test" {
 			t.Errorf("expected q=test, got q=%s", q.Get("q"))
 		}
+		if q.Get("search_type") != "TOP" {
+			t.Errorf("expected search_type=TOP, got %s", q.Get("search_type"))
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte(`{"data":[],"paging":{}}`))

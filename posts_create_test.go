@@ -82,6 +82,12 @@ func TestCreateTextPost_AutoPublish(t *testing.T) {
 
 		switch {
 		case r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/12345/threads"):
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("failed to parse form: %v", err)
+			}
+			if r.PostForm.Get("auto_publish_text") != "true" {
+				t.Error("expected auto_publish_text=true")
+			}
 			w.WriteHeader(200)
 			_, _ = w.Write([]byte(`{"id":"post_auto"}`))
 		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/post_auto"):

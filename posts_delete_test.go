@@ -44,4 +44,7 @@ func TestDeletePost_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 404")
 	}
+	if !IsAPIError(err) {
+		t.Errorf("expected APIError, got %T", err)
+	}
 }
