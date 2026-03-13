@@ -108,17 +108,20 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 	// Release lock before sleeping so other goroutines aren't blocked
 	rl.mu.Unlock()
 
-	// Wait for either the context to be cancelled or the wait time to elapse
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(waitTime):
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(waitTime):
+		}
+
 		rl.mu.Lock()
-		// If MarkRateLimited() was called with a later reset time while we
-		// were sleeping, re-wait for the new deadline instead of proceeding
 		if rl.resetTime.After(originalResetTime) {
+			// Rate limit was extended while we slept; recalculate and loop
+			originalResetTime = rl.resetTime
+			waitTime = time.Until(rl.resetTime)
 			rl.mu.Unlock()
-			return rl.Wait(ctx)
+			continue
 		}
 		rl.rateLimited = false
 		rl.lastRequestTime = time.Now()
