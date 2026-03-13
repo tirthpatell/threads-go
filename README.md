@@ -212,10 +212,10 @@ err = client.IgnorePendingReply(ctx, threads.PostID("reply-id"))
 For advanced post creation, use the fluent `ContainerBuilder`:
 
 ```go
-builder := threads.NewContainerBuilder(userID).
+builder := threads.NewContainerBuilder().
     SetMediaType("TEXT").
     SetText("Hello from the builder!").
-    SetReplyControl(threads.ReplyControlFollowing).
+    SetReplyControl(threads.ReplyControlFollowersOnly).
     SetTopicTag("golang").
     SetLocationID("location-id")
 params := builder.Build()
