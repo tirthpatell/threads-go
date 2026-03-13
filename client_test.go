@@ -166,6 +166,24 @@ func TestValidation(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for text too long")
 		}
+
+		// Test CJK text within character limit (500 CJK chars = 1500 bytes,
+		// but should count as 500 characters, not 1500)
+		cjkText := ""
+		for i := 0; i < MaxTextLength; i++ {
+			cjkText += "你"
+		}
+		err = validator.ValidateTextLength(cjkText, "Text")
+		if err != nil {
+			t.Errorf("Expected no error for %d CJK characters, got: %v", MaxTextLength, err)
+		}
+
+		// Test CJK text exceeding character limit (501 CJK chars)
+		cjkText += "你"
+		err = validator.ValidateTextLength(cjkText, "Text")
+		if err == nil {
+			t.Error("Expected error for CJK text exceeding character limit")
+		}
 	})
 
 	t.Run("ValidateTopicTag", func(t *testing.T) {

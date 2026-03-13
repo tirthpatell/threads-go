@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Validator provides common validation methods
@@ -22,9 +23,12 @@ func (v *Validator) ValidatePostContent(content interface{}, _ int) error {
 	return nil
 }
 
-// ValidateTextLength validates text doesn't exceed maximum length
+// ValidateTextLength validates text doesn't exceed maximum length.
+// The Threads API limits text posts to 500 characters (Unicode code points),
+// not 500 bytes. Using utf8.RuneCountInString ensures CJK and other
+// multi-byte characters are correctly counted as 1 character each.
 func (v *Validator) ValidateTextLength(text string, fieldName string) error {
-	if len(text) > MaxTextLength {
+	if utf8.RuneCountInString(text) > MaxTextLength {
 		return NewValidationError(400,
 			fmt.Sprintf("%s too long", fieldName),
 			fmt.Sprintf("%s is limited to %d characters", fieldName, MaxTextLength),
