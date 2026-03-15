@@ -184,4 +184,3 @@ func TestExtractBaseError(t *testing.T) {
 		}
 	})
 }
-
