@@ -2,6 +2,8 @@ package threads
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -42,12 +44,9 @@ func TestIsNetworkError(t *testing.T) {
 
 	t.Run("returns true for wrapped NetworkError", func(t *testing.T) {
 		netErr := NewNetworkError(0, "timeout", "details", true)
-		wrapped := errors.New("wrapper: " + netErr.Error())
-		// Need to use fmt.Errorf %w for proper wrapping
-		_ = wrapped
-		// Test with errors.As compatible wrapping
-		if IsNetworkError(errors.New("not a network error")) {
-			t.Error("Expected IsNetworkError to return false for plain error")
+		wrapped := fmt.Errorf("wrapper: %w", netErr)
+		if !IsNetworkError(wrapped) {
+			t.Error("Expected IsNetworkError to return true for wrapped NetworkError")
 		}
 	})
 
@@ -99,7 +98,7 @@ func TestBaseErrorError(t *testing.T) {
 			t.Fatal("Expected non-empty error string")
 		}
 		// Should contain details
-		if !contains(errStr, "field X is invalid") {
+		if !strings.Contains(errStr, "field X is invalid") {
 			t.Errorf("Expected error string to contain details, got: %s", errStr)
 		}
 	})
@@ -115,7 +114,7 @@ func TestBaseErrorError(t *testing.T) {
 			t.Fatal("Expected non-empty error string")
 		}
 		// Should not contain " - " separator since there are no details
-		if contains(errStr, " - ") {
+		if strings.Contains(errStr, " - ") {
 			t.Errorf("Expected error string without details separator, got: %s", errStr)
 		}
 	})
@@ -186,16 +185,3 @@ func TestExtractBaseError(t *testing.T) {
 	})
 }
 
-// helper for string containment checks
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
-}
-
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
