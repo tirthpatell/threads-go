@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -46,5 +47,268 @@ func TestDeletePost_NotFound(t *testing.T) {
 	}
 	if !IsAPIError(err) {
 		t.Errorf("expected APIError, got %T", err)
+	}
+}
+
+func TestDeletePostWithConfirmation_Success(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"success":true}`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	confirmed := false
+	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
+		confirmed = true
+		return true
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !confirmed {
+		t.Error("confirmation callback was not called")
+	}
+}
+
+func TestDeletePostWithConfirmation_Cancelled(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","text":"hello"}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
+		return false // user cancels
+	})
+	if err == nil {
+		t.Fatal("expected error when user cancels deletion")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestDeletePostWithConfirmation_InvalidID(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	err := client.DeletePostWithConfirmation(context.Background(), PostID(""), func(post *Post) bool {
+		return true
+	})
+	if err == nil {
+		t.Fatal("expected error for empty post ID")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestDeletePostWithConfirmation_NilCallback(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), nil)
+	if err == nil {
+		t.Fatal("expected error for nil callback")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestDeletePostWithConfirmation_GetPostError(t *testing.T) {
+	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("nonexistent"), func(post *Post) bool {
+		return true
+	})
+	if err == nil {
+		t.Fatal("expected error when post not found")
+	}
+}
+
+func TestDeletePost_Forbidden(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(403)
+			_, _ = w.Write([]byte(`{"error":{"message":"access denied","type":"OAuthException","code":200}}`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+	client.config.RetryConfig.MaxRetries = 0
+
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestDeletePost_NotAuthenticated(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+	_ = client.ClearToken()
+
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err == nil {
+		t.Fatal("expected error when not authenticated")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestDeletePost_ServerError(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(500)
+			_, _ = w.Write([]byte(`{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+	client.config.RetryConfig.MaxRetries = 0
+
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+}
+
+func TestDeletePost_Delete404(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"error":{"message":"not found","type":"OAuthException","code":100}}`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+	client.config.RetryConfig.MaxRetries = 0
+
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err == nil {
+		t.Fatal("expected error for 404 DELETE")
+	}
+	// The DeletePost method returns a ValidationError for 404 on the DELETE call
+	if !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "Post not found") {
+		t.Errorf("expected not found error, got: %v", err)
+	}
+}
+
+func TestDeletePost_WithLogger(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"success":true}`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+	client.config.Logger = &noopLogger{}
+
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDeletePost_MalformedDeleteResponse(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`not json`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	// Should succeed even with malformed response (200 status assumed success)
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDeletePost_MalformedDeleteResponseWithLogger(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" {
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`not json`))
+			return
+		}
+		// GET requests for post and user info
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":"post_1","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+	client.config.Logger = &noopLogger{}
+
+	// Should succeed even with malformed response and logger
+	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidatePostOwnership_DifferentUser(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		if strings.HasPrefix(r.URL.Path, "/12345") {
+			// GetMe -> GetUser returns our user
+			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
+		} else {
+			// GetPost returns a post owned by someone else
+			_, _ = w.Write([]byte(`{"id":"post_1","username":"other_user"}`))
+		}
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	err := client.validatePostOwnership(context.Background(), ConvertToPostID("post_1"))
+	if err == nil {
+		t.Fatal("expected error for different user ownership")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
 	}
 }

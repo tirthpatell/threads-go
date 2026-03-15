@@ -175,3 +175,302 @@ func TestGetUserGhostPosts_Success(t *testing.T) {
 		t.Errorf("expected 1 ghost post, got %d", len(resp.Data))
 	}
 }
+
+func TestGetUserMentions_InvalidUserID(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	_, err := client.GetUserMentions(context.Background(), UserID(""), nil)
+	if err == nil {
+		t.Fatal("expected error for empty user ID")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestGetUserMentions_NotAuthenticated(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+	_ = client.ClearToken()
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error when not authenticated")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestGetUserMentions_WithPagination(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		limit := r.URL.Query().Get("limit")
+		before := r.URL.Query().Get("before")
+		after := r.URL.Query().Get("after")
+		if limit != "10" {
+			t.Errorf("expected limit=10, got %s", limit)
+		}
+		if before != "cursor_before" {
+			t.Errorf("expected before=cursor_before, got %s", before)
+		}
+		if after != "cursor_after" {
+			t.Errorf("expected after=cursor_after, got %s", after)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"data": [{"id": "1"}], "paging": {}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), &PaginationOptions{
+		Limit:  10,
+		Before: "cursor_before",
+		After:  "cursor_after",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUserMentions_NotFound(t *testing.T) {
+	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+}
+
+func TestGetUserMentions_Forbidden(t *testing.T) {
+	client := testClient(t, jsonHandler(403, `{"error":{"message":"access denied","type":"OAuthException","code":200}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestGetUserMentions_ServerError(t *testing.T) {
+	client := testClient(t, jsonHandler(500, `{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+}
+
+func TestGetUserGhostPosts_InvalidUserID(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	_, err := client.GetUserGhostPosts(context.Background(), UserID(""), nil)
+	if err == nil {
+		t.Fatal("expected error for empty user ID")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestGetUserGhostPosts_NotAuthenticated(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+	_ = client.ClearToken()
+
+	_, err := client.GetUserGhostPosts(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error when not authenticated")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestGetUserGhostPosts_WithPagination(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		limit := r.URL.Query().Get("limit")
+		before := r.URL.Query().Get("before")
+		if limit != "5" {
+			t.Errorf("expected limit=5, got %s", limit)
+		}
+		if before != "cursor_abc" {
+			t.Errorf("expected before=cursor_abc, got %s", before)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"data": [{"id": "1"}], "paging": {}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	_, err := client.GetUserGhostPosts(context.Background(), ConvertToUserID("12345"), &PaginationOptions{
+		Limit:  5,
+		Before: "cursor_abc",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUserGhostPosts_NotFound(t *testing.T) {
+	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserGhostPosts(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+}
+
+func TestGetUserGhostPosts_ServerError(t *testing.T) {
+	client := testClient(t, jsonHandler(500, `{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserGhostPosts(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+}
+
+func TestGetPublishingLimits_NotAuthenticated(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+	_ = client.ClearToken()
+
+	_, err := client.GetPublishingLimits(context.Background())
+	if err == nil {
+		t.Fatal("expected error when not authenticated")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestGetPublishingLimits_EmptyUserID(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+	client.mu.Lock()
+	client.tokenInfo.UserID = ""
+	client.mu.Unlock()
+
+	_, err := client.GetPublishingLimits(context.Background())
+	if err == nil {
+		t.Fatal("expected error for empty user ID")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
+
+func TestGetPublishingLimits_APIError(t *testing.T) {
+	client := testClient(t, jsonHandler(500, `{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetPublishingLimits(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+}
+
+func TestGetPublishingLimits_EmptyData(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{"data":[]}`))
+
+	_, err := client.GetPublishingLimits(context.Background())
+	if err == nil {
+		t.Fatal("expected error for empty data")
+	}
+}
+
+func TestGetPublishingLimits_MalformedResponse(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `not json`))
+
+	_, err := client.GetPublishingLimits(context.Background())
+	if err == nil {
+		t.Fatal("expected error for malformed response")
+	}
+}
+
+func TestGetUserPosts_WithPagination(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		limit := r.URL.Query().Get("limit")
+		before := r.URL.Query().Get("before")
+		after := r.URL.Query().Get("after")
+		if limit != "10" {
+			t.Errorf("expected limit=10, got %s", limit)
+		}
+		if before != "before_cursor" {
+			t.Errorf("expected before=before_cursor, got %s", before)
+		}
+		if after != "after_cursor" {
+			t.Errorf("expected after=after_cursor, got %s", after)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"data": [{"id": "1"}], "paging": {}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	resp, err := client.GetUserPosts(context.Background(), ConvertToUserID("12345"), &PaginationOptions{
+		Limit:  10,
+		Before: "before_cursor",
+		After:  "after_cursor",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Errorf("expected 1 post, got %d", len(resp.Data))
+	}
+}
+
+func TestGetUserPostsWithOptions_WithTimeFilters(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		since := r.URL.Query().Get("since")
+		until := r.URL.Query().Get("until")
+		if since != "1700000000" {
+			t.Errorf("expected since=1700000000, got %s", since)
+		}
+		if until != "1700100000" {
+			t.Errorf("expected until=1700100000, got %s", until)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"data": [{"id": "1"}], "paging": {}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	_, err := client.GetUserPostsWithOptions(context.Background(), ConvertToUserID("12345"), &PostsOptions{
+		Since: 1700000000,
+		Until: 1700100000,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUserPostsWithOptions_NotFound(t *testing.T) {
+	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserPostsWithOptions(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+}
+
+func TestGetUserPostsWithOptions_Forbidden(t *testing.T) {
+	client := testClient(t, jsonHandler(403, `{"error":{"message":"access denied","type":"OAuthException","code":200}}`))
+	client.config.RetryConfig.MaxRetries = 0
+
+	_, err := client.GetUserPostsWithOptions(context.Background(), ConvertToUserID("12345"), nil)
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError, got %T", err)
+	}
+}
