@@ -1504,7 +1504,7 @@ func TestTestAPICall(t *testing.T) {
 		}
 	})
 
-	t.Run("default method uses GET", func(t *testing.T) {
+	t.Run("unsupported method falls back to GET", func(t *testing.T) {
 		client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
 				t.Errorf("Expected GET for default, got %s", r.Method)
