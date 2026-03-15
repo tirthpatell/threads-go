@@ -2,6 +2,8 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/tirthpatell/threads-go.svg)](https://pkg.go.dev/github.com/tirthpatell/threads-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tirthpatell/threads-go)](https://goreportcard.com/report/github.com/tirthpatell/threads-go)
+[![CI](https://github.com/tirthpatell/threads-go/actions/workflows/ci.yml/badge.svg)](https://github.com/tirthpatell/threads-go/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/tirthpatell/threads-go/branch/main/graph/badge.svg)](https://codecov.io/gh/tirthpatell/threads-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tirthpatell/2c608589294aed9aa900256daeec0fd4/raw/coverage.json)](https://github.com/tirthpatell/threads-go/actions)
 

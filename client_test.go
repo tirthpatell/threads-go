@@ -775,6 +775,274 @@ func TestCreateErrorFromResponseParsesErrorSubcode(t *testing.T) {
 	}
 }
 
+func TestContainerBuilderSetIsCarouselItem(t *testing.T) {
+	t.Run("true sets param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetIsCarouselItem(true).Build()
+		if params.Get("is_carousel_item") != "true" {
+			t.Errorf("Expected is_carousel_item='true', got %q", params.Get("is_carousel_item"))
+		}
+	})
+
+	t.Run("false does not set param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetIsCarouselItem(false).Build()
+		if params.Get("is_carousel_item") != "" {
+			t.Errorf("Expected empty is_carousel_item, got %q", params.Get("is_carousel_item"))
+		}
+	})
+}
+
+func TestContainerBuilderSetQuotePostID(t *testing.T) {
+	t.Run("non-empty sets param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetQuotePostID("12345").Build()
+		if params.Get("quote_post_id") != "12345" {
+			t.Errorf("Expected quote_post_id='12345', got %q", params.Get("quote_post_id"))
+		}
+	})
+
+	t.Run("empty does not set param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetQuotePostID("").Build()
+		if params.Get("quote_post_id") != "" {
+			t.Errorf("Expected empty quote_post_id, got %q", params.Get("quote_post_id"))
+		}
+	})
+}
+
+func TestContainerBuilderSetPollAttachment(t *testing.T) {
+	t.Run("valid poll", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		poll := &PollAttachment{
+			OptionA: "Yes",
+			OptionB: "No",
+		}
+		params := builder.SetPollAttachment(poll).Build()
+		pollParam := params.Get("poll_attachment")
+		if pollParam == "" {
+			t.Fatal("Expected poll_attachment to be set")
+		}
+		// Should contain the options
+		if !strings.Contains(pollParam, "Yes") || !strings.Contains(pollParam, "No") {
+			t.Errorf("Expected poll_attachment to contain options, got %q", pollParam)
+		}
+	})
+
+	t.Run("nil poll", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetPollAttachment(nil).Build()
+		if params.Get("poll_attachment") != "" {
+			t.Errorf("Expected empty poll_attachment for nil, got %q", params.Get("poll_attachment"))
+		}
+	})
+}
+
+func TestContainerBuilderSetTextEntities(t *testing.T) {
+	t.Run("valid entities", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		entities := []TextEntity{
+			{EntityType: "SPOILER", Offset: 0, Length: 5},
+			{EntityType: "SPOILER", Offset: 10, Length: 3},
+		}
+		params := builder.SetTextEntities(entities).Build()
+		entitiesParam := params.Get("text_entities")
+		if entitiesParam == "" {
+			t.Fatal("Expected text_entities to be set")
+		}
+		if !strings.Contains(entitiesParam, "SPOILER") {
+			t.Errorf("Expected text_entities to contain SPOILER, got %q", entitiesParam)
+		}
+	})
+
+	t.Run("empty entities", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetTextEntities(nil).Build()
+		if params.Get("text_entities") != "" {
+			t.Errorf("Expected empty text_entities for nil, got %q", params.Get("text_entities"))
+		}
+	})
+}
+
+func TestContainerBuilderSetTextAttachment(t *testing.T) {
+	t.Run("valid attachment", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		attachment := &TextAttachment{
+			Plaintext: "Long form content here",
+		}
+		params := builder.SetTextAttachment(attachment).Build()
+		attachmentParam := params.Get("text_attachment")
+		if attachmentParam == "" {
+			t.Fatal("Expected text_attachment to be set")
+		}
+		if !strings.Contains(attachmentParam, "Long form content here") {
+			t.Errorf("Expected text_attachment to contain text, got %q", attachmentParam)
+		}
+	})
+
+	t.Run("nil attachment", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetTextAttachment(nil).Build()
+		if params.Get("text_attachment") != "" {
+			t.Errorf("Expected empty text_attachment for nil, got %q", params.Get("text_attachment"))
+		}
+	})
+}
+
+func TestContainerBuilderSetLinkAttachment(t *testing.T) {
+	t.Run("non-empty link", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetLinkAttachment("https://example.com").Build()
+		if params.Get("link_attachment") != "https://example.com" {
+			t.Errorf("Expected link_attachment='https://example.com', got %q", params.Get("link_attachment"))
+		}
+	})
+
+	t.Run("empty link", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetLinkAttachment("").Build()
+		if params.Get("link_attachment") != "" {
+			t.Errorf("Expected empty link_attachment, got %q", params.Get("link_attachment"))
+		}
+	})
+}
+
+func TestContainerBuilderSetAllowlistedCountryCodes(t *testing.T) {
+	t.Run("with codes", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetAllowlistedCountryCodes([]string{"US", "CA", "GB"}).Build()
+		codes := params["allowlisted_country_codes"]
+		if len(codes) != 3 {
+			t.Errorf("Expected 3 country codes, got %d", len(codes))
+		}
+	})
+
+	t.Run("empty codes", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetAllowlistedCountryCodes(nil).Build()
+		codes := params["allowlisted_country_codes"]
+		if len(codes) != 0 {
+			t.Errorf("Expected 0 country codes, got %d", len(codes))
+		}
+	})
+}
+
+func TestContainerBuilderSetAltText(t *testing.T) {
+	t.Run("non-empty alt text", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetAltText("A photo of a sunset").Build()
+		if params.Get("alt_text") != "A photo of a sunset" {
+			t.Errorf("Expected alt_text='A photo of a sunset', got %q", params.Get("alt_text"))
+		}
+	})
+
+	t.Run("empty alt text", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetAltText("").Build()
+		if params.Get("alt_text") != "" {
+			t.Errorf("Expected empty alt_text, got %q", params.Get("alt_text"))
+		}
+	})
+}
+
+func TestContainerBuilderSetReplyTo(t *testing.T) {
+	t.Run("non-empty reply to", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetReplyTo("post-123").Build()
+		if params.Get("reply_to_id") != "post-123" {
+			t.Errorf("Expected reply_to_id='post-123', got %q", params.Get("reply_to_id"))
+		}
+	})
+
+	t.Run("empty reply to", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetReplyTo("").Build()
+		if params.Get("reply_to_id") != "" {
+			t.Errorf("Expected empty reply_to_id, got %q", params.Get("reply_to_id"))
+		}
+	})
+}
+
+func TestContainerBuilderSetTopicTag(t *testing.T) {
+	t.Run("non-empty topic tag", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetTopicTag("golang").Build()
+		if params.Get("topic_tag") != "golang" {
+			t.Errorf("Expected topic_tag='golang', got %q", params.Get("topic_tag"))
+		}
+	})
+
+	t.Run("empty topic tag", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetTopicTag("").Build()
+		if params.Get("topic_tag") != "" {
+			t.Errorf("Expected empty topic_tag, got %q", params.Get("topic_tag"))
+		}
+	})
+}
+
+func TestContainerBuilderSetLocationID(t *testing.T) {
+	t.Run("non-empty location ID", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetLocationID("loc-456").Build()
+		if params.Get("location_id") != "loc-456" {
+			t.Errorf("Expected location_id='loc-456', got %q", params.Get("location_id"))
+		}
+	})
+
+	t.Run("empty location ID", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetLocationID("").Build()
+		if params.Get("location_id") != "" {
+			t.Errorf("Expected empty location_id, got %q", params.Get("location_id"))
+		}
+	})
+}
+
+func TestContainerBuilderSetIsSpoilerMedia(t *testing.T) {
+	t.Run("true sets param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetIsSpoilerMedia(true).Build()
+		if params.Get("is_spoiler_media") != "true" {
+			t.Errorf("Expected is_spoiler_media='true', got %q", params.Get("is_spoiler_media"))
+		}
+	})
+
+	t.Run("false does not set param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetIsSpoilerMedia(false).Build()
+		if params.Get("is_spoiler_media") != "" {
+			t.Errorf("Expected empty is_spoiler_media, got %q", params.Get("is_spoiler_media"))
+		}
+	})
+}
+
+func TestContainerBuilderSetIsGhostPost(t *testing.T) {
+	t.Run("true sets param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetIsGhostPost(true).Build()
+		if params.Get("is_ghost_post") != "true" {
+			t.Errorf("Expected is_ghost_post='true', got %q", params.Get("is_ghost_post"))
+		}
+	})
+
+	t.Run("false does not set param", func(t *testing.T) {
+		builder := NewContainerBuilder()
+		params := builder.SetIsGhostPost(false).Build()
+		if params.Get("is_ghost_post") != "" {
+			t.Errorf("Expected empty is_ghost_post, got %q", params.Get("is_ghost_post"))
+		}
+	})
+}
+
+func TestContainerBuilderAddChildEmpty(t *testing.T) {
+	builder := NewContainerBuilder()
+	params := builder.AddChild("").Build()
+	if params.Get("children") != "" {
+		t.Errorf("Expected empty children for empty childID, got %q", params.Get("children"))
+	}
+}
+
 func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts := &SearchOptions{
 		AuthorUsername: "testuser",
@@ -789,6 +1057,783 @@ func TestSearchOptionsAuthorUsername(t *testing.T) {
 	opts.AuthorUsername = "@testuser"
 	if opts.AuthorUsername != "@testuser" {
 		t.Errorf("Expected AuthorUsername to be '@testuser', got '%s'", opts.AuthorUsername)
+	}
+}
+
+// clearThreadsEnv sets all THREADS_* env vars to empty via t.Setenv (auto-restored on cleanup).
+func clearThreadsEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"THREADS_CLIENT_ID", "THREADS_CLIENT_SECRET", "THREADS_REDIRECT_URI",
+		"THREADS_SCOPES", "THREADS_HTTP_TIMEOUT", "THREADS_BASE_URL",
+		"THREADS_USER_AGENT", "THREADS_DEBUG", "THREADS_MAX_RETRIES",
+		"THREADS_INITIAL_DELAY", "THREADS_MAX_DELAY", "THREADS_BACKOFF_FACTOR",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
+func TestNewConfigFromEnv(t *testing.T) {
+	clearThreadsEnv(t)
+
+	t.Run("missing THREADS_CLIENT_ID", func(t *testing.T) {
+		_, err := NewConfigFromEnv()
+		if err == nil {
+			t.Fatal("Expected error for missing THREADS_CLIENT_ID")
+		}
+	})
+
+	t.Run("missing THREADS_CLIENT_SECRET", func(t *testing.T) {
+		t.Setenv("THREADS_CLIENT_ID", "test-id")
+		_, err := NewConfigFromEnv()
+		if err == nil {
+			t.Fatal("Expected error for missing THREADS_CLIENT_SECRET")
+		}
+	})
+
+	t.Run("missing THREADS_REDIRECT_URI", func(t *testing.T) {
+		t.Setenv("THREADS_CLIENT_ID", "test-id")
+		t.Setenv("THREADS_CLIENT_SECRET", "test-secret")
+		_, err := NewConfigFromEnv()
+		if err == nil {
+			t.Fatal("Expected error for missing THREADS_REDIRECT_URI")
+		}
+	})
+
+	t.Run("all required vars set", func(t *testing.T) {
+		t.Setenv("THREADS_CLIENT_ID", "env-client-id")
+		t.Setenv("THREADS_CLIENT_SECRET", "env-client-secret")
+		t.Setenv("THREADS_REDIRECT_URI", "https://example.com/callback")
+		config, err := NewConfigFromEnv()
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if config.ClientID != "env-client-id" {
+			t.Errorf("Expected ClientID 'env-client-id', got %q", config.ClientID)
+		}
+		if config.ClientSecret != "env-client-secret" {
+			t.Errorf("Expected ClientSecret 'env-client-secret', got %q", config.ClientSecret)
+		}
+	})
+
+	t.Run("optional env vars", func(t *testing.T) {
+		t.Setenv("THREADS_CLIENT_ID", "env-client-id")
+		t.Setenv("THREADS_CLIENT_SECRET", "env-client-secret")
+		t.Setenv("THREADS_REDIRECT_URI", "https://example.com/callback")
+		t.Setenv("THREADS_SCOPES", "threads_basic, threads_content_publish")
+		t.Setenv("THREADS_HTTP_TIMEOUT", "60s")
+		t.Setenv("THREADS_BASE_URL", "https://custom.example.com")
+		t.Setenv("THREADS_USER_AGENT", "custom-agent/1.0")
+		t.Setenv("THREADS_DEBUG", "true")
+		t.Setenv("THREADS_MAX_RETRIES", "5")
+		t.Setenv("THREADS_INITIAL_DELAY", "2s")
+		t.Setenv("THREADS_MAX_DELAY", "60s")
+		t.Setenv("THREADS_BACKOFF_FACTOR", "3.0")
+
+		config, err := NewConfigFromEnv()
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+
+		if len(config.Scopes) != 2 {
+			t.Errorf("Expected 2 scopes, got %d", len(config.Scopes))
+		}
+		if config.Scopes[0] != "threads_basic" {
+			t.Errorf("Expected first scope 'threads_basic', got %q", config.Scopes[0])
+		}
+		if config.Scopes[1] != "threads_content_publish" {
+			t.Errorf("Expected second scope 'threads_content_publish', got %q", config.Scopes[1])
+		}
+		if config.HTTPTimeout != 60*time.Second {
+			t.Errorf("Expected HTTPTimeout 60s, got %v", config.HTTPTimeout)
+		}
+		if config.BaseURL != "https://custom.example.com" {
+			t.Errorf("Expected BaseURL 'https://custom.example.com', got %q", config.BaseURL)
+		}
+		if config.UserAgent != "custom-agent/1.0" {
+			t.Errorf("Expected UserAgent 'custom-agent/1.0', got %q", config.UserAgent)
+		}
+		if !config.Debug {
+			t.Error("Expected Debug to be true")
+		}
+		if config.RetryConfig.MaxRetries != 5 {
+			t.Errorf("Expected MaxRetries 5, got %d", config.RetryConfig.MaxRetries)
+		}
+		if config.RetryConfig.InitialDelay != 2*time.Second {
+			t.Errorf("Expected InitialDelay 2s, got %v", config.RetryConfig.InitialDelay)
+		}
+		if config.RetryConfig.MaxDelay != 60*time.Second {
+			t.Errorf("Expected MaxDelay 60s, got %v", config.RetryConfig.MaxDelay)
+		}
+		if config.RetryConfig.BackoffFactor != 3.0 {
+			t.Errorf("Expected BackoffFactor 3.0, got %v", config.RetryConfig.BackoffFactor)
+		}
+	})
+}
+
+func TestNewClientFromEnv(t *testing.T) {
+	clearThreadsEnv(t)
+
+	t.Run("fails without env vars", func(t *testing.T) {
+		_, err := NewClientFromEnv()
+		if err == nil {
+			t.Fatal("Expected error when env vars are missing")
+		}
+	})
+
+	t.Run("succeeds with required env vars", func(t *testing.T) {
+		t.Setenv("THREADS_CLIENT_ID", "client-id")
+		t.Setenv("THREADS_CLIENT_SECRET", "client-secret")
+		t.Setenv("THREADS_REDIRECT_URI", "https://example.com/callback")
+		client, err := NewClientFromEnv()
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if client == nil {
+			t.Fatal("Expected non-nil client")
+		}
+	})
+}
+
+func TestNewClientWithToken(t *testing.T) {
+	t.Run("empty token returns error", func(t *testing.T) {
+		_, err := NewClientWithToken("", &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+		})
+		if err == nil {
+			t.Fatal("Expected error for empty token")
+		}
+	})
+
+	t.Run("nil config returns error", func(t *testing.T) {
+		_, err := NewClientWithToken("some-token", nil)
+		if err == nil {
+			t.Fatal("Expected error for nil config")
+		}
+	})
+
+	t.Run("debug token fails returns error", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(400)
+			w.Write([]byte(`{"error":{"message":"Invalid token","type":"OAuthException","code":190}}`))
+		}))
+		defer ts.Close()
+
+		config := &Config{
+			ClientID:     "test-id",
+			ClientSecret: "test-secret",
+			RedirectURI:  "https://example.com/callback",
+			BaseURL:      ts.URL,
+		}
+
+		_, err := NewClientWithToken("invalid-token", config)
+		if err == nil {
+			t.Fatal("Expected error for invalid token")
+		}
+	})
+
+	t.Run("valid token with mock server", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			w.Write([]byte(`{
+				"data": {
+					"app_id": "123",
+					"type": "USER",
+					"application": "TestApp",
+					"is_valid": true,
+					"issued_at": 1700000000,
+					"expires_at": 1900000000,
+					"scopes": ["threads_basic"],
+					"user_id": "456"
+				}
+			}`))
+		}))
+		defer ts.Close()
+
+		config := &Config{
+			ClientID:     "test-id",
+			ClientSecret: "test-secret",
+			RedirectURI:  "https://example.com/callback",
+			BaseURL:      ts.URL,
+		}
+
+		client, err := NewClientWithToken("valid-token", config)
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if client == nil {
+			t.Fatal("Expected non-nil client")
+		}
+		if !client.IsAuthenticated() {
+			t.Error("Expected client to be authenticated")
+		}
+	})
+}
+
+func TestValidateToken(t *testing.T) {
+	t.Run("not authenticated", func(t *testing.T) {
+		client := newBareClient(t)
+		err := client.ValidateToken()
+		if err == nil {
+			t.Fatal("Expected error for unauthenticated client")
+		}
+	})
+
+	t.Run("expired token", func(t *testing.T) {
+		client := newBareClient(t)
+		client.tokenInfo = &TokenInfo{
+			AccessToken: "expired-token",
+			ExpiresAt:   time.Now().Add(-time.Hour),
+		}
+		client.accessToken = "expired-token"
+		err := client.ValidateToken()
+		if err == nil {
+			t.Fatal("Expected error for expired token")
+		}
+	})
+
+	t.Run("valid token with mock", func(t *testing.T) {
+		client := testClient(t, jsonHandler(200, `{"id":"12345"}`))
+
+		err := client.ValidateToken()
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+	})
+}
+
+func TestGetConfig(t *testing.T) {
+	client := newBareClient(t)
+
+	retrieved := client.GetConfig()
+	if retrieved == nil {
+		t.Fatal("Expected non-nil config")
+	}
+	if retrieved.ClientID == "" {
+		t.Error("Expected non-empty ClientID")
+	}
+
+	// Verify it's a copy (modifying shouldn't affect client)
+	original := client.config.ClientID
+	retrieved.ClientID = "modified"
+	if client.config.ClientID != original {
+		t.Error("GetConfig should return a copy, not a reference")
+	}
+}
+
+func TestUpdateConfig(t *testing.T) {
+	client := newBareClient(t)
+
+	t.Run("nil config returns error", func(t *testing.T) {
+		err := client.UpdateConfig(nil)
+		if err == nil {
+			t.Fatal("Expected error for nil config")
+		}
+	})
+
+	t.Run("invalid config returns error", func(t *testing.T) {
+		err := client.UpdateConfig(&Config{})
+		if err == nil {
+			t.Fatal("Expected error for empty config")
+		}
+	})
+
+	t.Run("valid config updates client", func(t *testing.T) {
+		newConfig := &Config{
+			ClientID:     "new-id",
+			ClientSecret: "new-secret",
+			RedirectURI:  "https://new.example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  60 * time.Second,
+			BaseURL:      "https://new-api.example.com",
+			RetryConfig: &RetryConfig{
+				MaxRetries:    5,
+				InitialDelay:  time.Second,
+				MaxDelay:      30 * time.Second,
+				BackoffFactor: 2.0,
+			},
+		}
+		err := client.UpdateConfig(newConfig)
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if client.baseURL != "https://new-api.example.com" {
+			t.Errorf("Expected baseURL to be updated, got %q", client.baseURL)
+		}
+	})
+}
+
+func TestClone(t *testing.T) {
+	client := newBareClient(t)
+
+	cloned, err := client.Clone()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cloned == nil {
+		t.Fatal("Expected non-nil cloned client")
+	}
+	if cloned == client {
+		t.Error("Expected Clone to return a different instance")
+	}
+}
+
+func TestCloneWithConfig(t *testing.T) {
+	client := newBareClient(t)
+
+	newConfig := &Config{
+		ClientID:     "new-id",
+		ClientSecret: "new-secret",
+		RedirectURI:  "https://new.example.com/callback",
+		Scopes:       []string{"threads_basic"},
+		HTTPTimeout:  60 * time.Second,
+		BaseURL:      "https://new-api.example.com",
+	}
+
+	cloned, err := client.CloneWithConfig(newConfig)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cloned == nil {
+		t.Fatal("Expected non-nil cloned client")
+	}
+}
+
+func TestGetRateLimitStatus(t *testing.T) {
+	client := newBareClient(t)
+
+	status := client.GetRateLimitStatus()
+	if status.Limit <= 0 {
+		t.Errorf("Expected positive limit, got %d", status.Limit)
+	}
+}
+
+func TestIsNearRateLimit(t *testing.T) {
+	client := newBareClient(t)
+
+	// With fresh rate limiter, should not be near limit
+	if client.IsNearRateLimit(0.9) {
+		t.Error("Expected not near rate limit with fresh limiter")
+	}
+}
+
+func TestIsRateLimited(t *testing.T) {
+	client := newBareClient(t)
+
+	if client.IsRateLimited() {
+		t.Error("Expected not rate limited with fresh limiter")
+	}
+}
+
+func TestDisableAndEnableRateLimiting(t *testing.T) {
+	client := newBareClient(t)
+
+	// Disable
+	client.DisableRateLimiting()
+	if client.rateLimiter != nil {
+		t.Error("Expected rateLimiter to be nil after disabling")
+	}
+
+	// Enable
+	client.EnableRateLimiting()
+	if client.rateLimiter == nil {
+		t.Error("Expected rateLimiter to be non-nil after enabling")
+	}
+
+	// Enable again (should be no-op since already enabled)
+	client.EnableRateLimiting()
+	if client.rateLimiter == nil {
+		t.Error("Expected rateLimiter to still be non-nil")
+	}
+}
+
+func TestWaitForRateLimit(t *testing.T) {
+	client := newBareClient(t)
+
+	// Should return immediately when not rate limited
+	ctx := context.Background()
+	err := client.WaitForRateLimit(ctx)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+}
+
+func TestTestAPICall(t *testing.T) {
+	t.Run("GET request", func(t *testing.T) {
+		client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				t.Errorf("Expected GET, got %s", r.Method)
+			}
+			if r.URL.Query().Get("fields") != "id" {
+				t.Errorf("Expected fields=id, got %s", r.URL.Query().Get("fields"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			w.Write([]byte(`{"id":"12345"}`))
+		}))
+
+		resp, err := client.TestAPICall("GET", "/v1.0/me", map[string]string{"fields": "id"})
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if resp == nil {
+			t.Fatal("Expected non-nil response")
+		}
+	})
+
+	t.Run("POST request", func(t *testing.T) {
+		client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "POST" {
+				t.Errorf("Expected POST, got %s", r.Method)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			w.Write([]byte(`{"id":"12345"}`))
+		}))
+
+		resp, err := client.TestAPICall("POST", "/v1.0/me/threads", map[string]string{})
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if resp == nil {
+			t.Fatal("Expected non-nil response")
+		}
+	})
+
+	t.Run("unsupported method falls back to GET", func(t *testing.T) {
+		client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				t.Errorf("Expected GET for default, got %s", r.Method)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			w.Write([]byte(`{"id":"12345"}`))
+		}))
+
+		resp, err := client.TestAPICall("PATCH", "/v1.0/me", nil)
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if resp == nil {
+			t.Fatal("Expected non-nil response")
+		}
+	})
+}
+
+func TestSafeJSONUnmarshal(t *testing.T) {
+	t.Run("empty data", func(t *testing.T) {
+		var result map[string]string
+		err := safeJSONUnmarshal([]byte{}, &result, "test", "req-1")
+		if err == nil {
+			t.Fatal("Expected error for empty data")
+		}
+	})
+
+	t.Run("whitespace only", func(t *testing.T) {
+		var result map[string]string
+		err := safeJSONUnmarshal([]byte("   "), &result, "test", "req-1")
+		if err == nil {
+			t.Fatal("Expected error for whitespace-only data")
+		}
+	})
+
+	t.Run("non-JSON response", func(t *testing.T) {
+		var result map[string]string
+		err := safeJSONUnmarshal([]byte("Not JSON data"), &result, "test", "req-1")
+		if err == nil {
+			t.Fatal("Expected error for non-JSON data")
+		}
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		var result map[string]string
+		err := safeJSONUnmarshal([]byte(`{"broken`), &result, "test", "req-1")
+		if err == nil {
+			t.Fatal("Expected error for invalid JSON")
+		}
+	})
+
+	t.Run("valid JSON object", func(t *testing.T) {
+		var result map[string]string
+		err := safeJSONUnmarshal([]byte(`{"key":"value"}`), &result, "test", "req-1")
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if result["key"] != "value" {
+			t.Errorf("Expected key=value, got %q", result["key"])
+		}
+	})
+
+	t.Run("valid JSON array", func(t *testing.T) {
+		var result []int
+		err := safeJSONUnmarshal([]byte(`[1,2,3]`), &result, "test", "req-1")
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if len(result) != 3 {
+			t.Errorf("Expected 3 elements, got %d", len(result))
+		}
+	})
+}
+
+func TestConfigValidate(t *testing.T) {
+	t.Run("invalid redirect URI format", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "ftp://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for non-HTTP redirect URI")
+		}
+	})
+
+	t.Run("empty scopes", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for empty scopes")
+		}
+	})
+
+	t.Run("invalid scope", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"invalid_scope"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for invalid scope")
+		}
+	})
+
+	t.Run("negative HTTP timeout", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  -1 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for negative HTTPTimeout")
+		}
+	})
+
+	t.Run("retry config negative max retries", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+			RetryConfig: &RetryConfig{
+				MaxRetries:    -1,
+				InitialDelay:  time.Second,
+				MaxDelay:      30 * time.Second,
+				BackoffFactor: 2.0,
+			},
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for negative max retries")
+		}
+	})
+
+	t.Run("retry config zero initial delay", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+			RetryConfig: &RetryConfig{
+				MaxRetries:    3,
+				InitialDelay:  0,
+				MaxDelay:      30 * time.Second,
+				BackoffFactor: 2.0,
+			},
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for zero initial delay")
+		}
+	})
+
+	t.Run("retry config zero max delay", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+			RetryConfig: &RetryConfig{
+				MaxRetries:    3,
+				InitialDelay:  time.Second,
+				MaxDelay:      0,
+				BackoffFactor: 2.0,
+			},
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for zero max delay")
+		}
+	})
+
+	t.Run("retry config zero backoff factor", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+			RetryConfig: &RetryConfig{
+				MaxRetries:    3,
+				InitialDelay:  time.Second,
+				MaxDelay:      30 * time.Second,
+				BackoffFactor: 0,
+			},
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for zero backoff factor")
+		}
+	})
+
+	t.Run("retry config initial delay greater than max delay", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "https://graph.threads.net",
+			RetryConfig: &RetryConfig{
+				MaxRetries:    3,
+				InitialDelay:  time.Minute,
+				MaxDelay:      time.Second,
+				BackoffFactor: 2.0,
+			},
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for InitialDelay > MaxDelay")
+		}
+	})
+
+	t.Run("empty BaseURL", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "",
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for empty BaseURL")
+		}
+	})
+
+	t.Run("invalid BaseURL scheme", func(t *testing.T) {
+		config := &Config{
+			ClientID:     "id",
+			ClientSecret: "secret",
+			RedirectURI:  "https://example.com/callback",
+			Scopes:       []string{"threads_basic"},
+			HTTPTimeout:  30 * time.Second,
+			BaseURL:      "ftp://graph.threads.net",
+		}
+		err := config.Validate()
+		if err == nil {
+			t.Fatal("Expected error for non-HTTP BaseURL")
+		}
+	})
+}
+
+func TestSetTokenInfoNil(t *testing.T) {
+	config := NewConfig()
+	config.ClientID = "test"
+	config.ClientSecret = "secret"
+	config.RedirectURI = "http://localhost"
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	err = client.SetTokenInfo(nil)
+	if err == nil {
+		t.Fatal("Expected error for nil tokenInfo")
+	}
+}
+
+func TestGetTokenInfoNilToken(t *testing.T) {
+	config := NewConfig()
+	config.ClientID = "test"
+	config.ClientSecret = "secret"
+	config.RedirectURI = "http://localhost"
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	info := client.GetTokenInfo()
+	if info != nil {
+		t.Error("Expected nil for client with no token")
+	}
+}
+
+func TestMemoryTokenStorageLoad(t *testing.T) {
+	storage := &MemoryTokenStorage{}
+
+	// Load from empty storage
+	_, err := storage.Load()
+	if err == nil {
+		t.Fatal("Expected error for empty storage")
+	}
+
+	// Store and load
+	token := &TokenInfo{
+		AccessToken: "test-token",
+		TokenType:   "Bearer",
+		ExpiresAt:   time.Now().Add(time.Hour),
+	}
+	if err := storage.Store(token); err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+
+	loaded, err := storage.Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loaded.AccessToken != "test-token" {
+		t.Errorf("Expected 'test-token', got %q", loaded.AccessToken)
 	}
 }
 
@@ -829,4 +1874,214 @@ func TestWaitForContainerReadyRespectsContext(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Expected context.DeadlineExceeded, got: %v", err)
 	}
+}
+
+func TestHandleAPIError(t *testing.T) {
+	client := newBareClient(t)
+
+	tests := []struct {
+		name       string
+		resp       *Response
+		checkError func(t *testing.T, err error)
+	}{
+		{
+			name: "401 auth error",
+			resp: &Response{
+				StatusCode: 401,
+				Body:       []byte(`{"error":{"message":"Invalid token","type":"OAuthException","code":190}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAuthenticationError(err) {
+					t.Errorf("Expected authentication error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "403 auth error",
+			resp: &Response{
+				StatusCode: 403,
+				Body:       []byte(`{"error":{"message":"Permission denied","type":"OAuthException","code":200}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAuthenticationError(err) {
+					t.Errorf("Expected authentication error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "429 rate limit error",
+			resp: &Response{
+				StatusCode: 429,
+				Body:       []byte(`{"error":{"message":"Rate limited","type":"OAuthException","code":32}}`),
+				RateLimit:  &RateLimitInfo{RetryAfter: 60 * time.Second},
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsRateLimitError(err) {
+					t.Errorf("Expected rate limit error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "429 rate limit error without rate limit info",
+			resp: &Response{
+				StatusCode: 429,
+				Body:       []byte(`{"error":{"message":"Rate limited","type":"OAuthException","code":32}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsRateLimitError(err) {
+					t.Errorf("Expected rate limit error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "400 validation error",
+			resp: &Response{
+				StatusCode: 400,
+				Body:       []byte(`{"error":{"message":"Invalid param","type":"OAuthException","code":100}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsValidationError(err) {
+					t.Errorf("Expected validation error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "422 validation error",
+			resp: &Response{
+				StatusCode: 422,
+				Body:       []byte(`{"error":{"message":"Unprocessable","type":"OAuthException","code":422}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsValidationError(err) {
+					t.Errorf("Expected validation error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "500 generic API error",
+			resp: &Response{
+				StatusCode: 500,
+				Body:       []byte(`{"error":{"message":"Server error","type":"ServerException","code":2,"is_transient":true,"error_subcode":1234,"error_data":{"details":"internal"}}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAPIError(err) {
+					t.Errorf("Expected API error, got %T", err)
+				}
+				if !IsTransientError(err) {
+					t.Error("Expected transient error")
+				}
+			},
+		},
+		{
+			name: "error with zero error code uses status code",
+			resp: &Response{
+				StatusCode: 503,
+				Body:       []byte(`{"error":{"message":"Service unavailable","type":"ServerException","code":0}}`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAPIError(err) {
+					t.Errorf("Expected API error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "empty body fallback",
+			resp: &Response{
+				StatusCode: 502,
+				Body:       []byte{},
+				RequestID:  "req-123",
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAPIError(err) {
+					t.Errorf("Expected API error, got %T", err)
+				}
+				if !strings.Contains(err.Error(), "502") {
+					t.Errorf("Expected status code in error message, got: %s", err.Error())
+				}
+			},
+		},
+		{
+			name: "malformed JSON fallback",
+			resp: &Response{
+				StatusCode: 500,
+				Body:       []byte(`not json at all`),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAPIError(err) {
+					t.Errorf("Expected API error, got %T", err)
+				}
+			},
+		},
+		{
+			name: "long body gets truncated in fallback",
+			resp: &Response{
+				StatusCode: 500,
+				Body:       []byte(strings.Repeat("x", 600)),
+			},
+			checkError: func(t *testing.T, err error) {
+				if !IsAPIError(err) {
+					t.Errorf("Expected API error, got %T", err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := client.handleAPIError(tt.resp)
+			if err == nil {
+				t.Fatal("Expected error, got nil")
+			}
+			tt.checkError(t, err)
+		})
+	}
+}
+
+func TestEnsureValidToken_RefreshPath(t *testing.T) {
+	// Test: token valid, no refresh needed
+	t.Run("token valid", func(t *testing.T) {
+		client := newBareClient(t)
+		client.accessToken = "test-token"
+		client.tokenInfo = &TokenInfo{
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+			CreatedAt: time.Now(),
+		}
+
+		err := client.EnsureValidToken(context.Background())
+		if err != nil {
+			t.Errorf("Expected no error for valid token, got: %v", err)
+		}
+	})
+
+	// Test: token expired, refresh fails
+	t.Run("expired token refresh fails", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(400)
+			fmt.Fprintln(w, `{"error":{"message":"refresh failed"}}`)
+		}))
+		defer server.Close()
+
+		config := NewConfig()
+		config.ClientID = "test-id"
+		config.ClientSecret = "test-secret"
+		config.RedirectURI = "https://example.com/callback"
+		config.BaseURL = server.URL
+		client, err := NewClient(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.accessToken = "test-token"
+		client.tokenInfo = &TokenInfo{
+			ExpiresAt: time.Now().Add(-1 * time.Hour), // expired
+			CreatedAt: time.Now().Add(-25 * time.Hour),
+		}
+
+		err = client.EnsureValidToken(context.Background())
+		if err == nil {
+			t.Fatal("Expected error for expired token with failed refresh")
+		}
+		if !strings.Contains(err.Error(), "failed to refresh token") {
+			t.Errorf("Expected 'failed to refresh token' in error, got: %v", err)
+		}
+	})
 }
