@@ -82,13 +82,13 @@ type Post struct {
 	// Available for replies and mentions. For conversations, only available on direct replies.
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	// ReplyApprovalStatus is the approval status of a pending reply ("pending" or "ignored")
-	ReplyApprovalStatus     string          `json:"reply_approval_status,omitempty"`
-	IsSpoilerMedia          bool            `json:"is_spoiler_media,omitempty"`
+	ReplyApprovalStatus     string                `json:"reply_approval_status,omitempty"`
+	IsSpoilerMedia          bool                  `json:"is_spoiler_media,omitempty"`
 	TextEntities            *TextEntitiesResponse `json:"text_entities,omitempty"`
-	TextAttachment          *TextAttachment `json:"text_attachment,omitempty"`
-	AllowlistedCountryCodes []string        `json:"allowlisted_country_codes,omitempty"`
-	LocationID              string          `json:"location_id,omitempty"`
-	Location                *Location       `json:"location,omitempty"`
+	TextAttachment          *TextAttachment       `json:"text_attachment,omitempty"`
+	AllowlistedCountryCodes []string              `json:"allowlisted_country_codes,omitempty"`
+	LocationID              string                `json:"location_id,omitempty"`
+	Location                *Location             `json:"location,omitempty"`
 }
 
 // RecentSearch represents a recently searched keyword with its timestamp

@@ -788,7 +788,6 @@ func TestGetAppAccessTokenShorthand_Format(t *testing.T) {
 	}
 }
 
-
 func TestTokenExpiration(t *testing.T) {
 	config := &Config{
 		ClientID:     "test-id",
