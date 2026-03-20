@@ -443,6 +443,17 @@ type PublishingLimits struct {
 // QuotaConfig represents quota configuration for a specific operation type.
 // QuotaTotal is the maximum allowed operations, QuotaDuration is the time window
 // in seconds during which the quota applies.
+//
+// Rate limit defaults per the API documentation:
+//   - Posts: 250 per 24 hours
+//   - Replies: 1000 per 24 hours
+//   - Deletes: 100 per 24 hours
+//   - Search: 2200 per 24 hours
+//   - Location search: 500 per 24 hours
+//
+// Additionally, API calls are subject to a rate limit calculated as
+// 4800 × Number of Impressions (minimum 10 impressions), with separate
+// CPU-time based limits.
 type QuotaConfig struct {
 	QuotaTotal    int `json:"quota_total"`
 	QuotaDuration int `json:"quota_duration"`
