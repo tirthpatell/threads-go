@@ -84,7 +84,7 @@ type Post struct {
 	// ReplyApprovalStatus is the approval status of a pending reply ("pending" or "ignored")
 	ReplyApprovalStatus     string          `json:"reply_approval_status,omitempty"`
 	IsSpoilerMedia          bool            `json:"is_spoiler_media,omitempty"`
-	TextEntities            []TextEntity    `json:"text_entities,omitempty"`
+	TextEntities            *TextEntitiesResponse `json:"text_entities,omitempty"`
 	TextAttachment          *TextAttachment `json:"text_attachment,omitempty"`
 	AllowlistedCountryCodes []string        `json:"allowlisted_country_codes,omitempty"`
 	LocationID              string          `json:"location_id,omitempty"`
@@ -543,6 +543,12 @@ type TextEntity struct {
 	EntityType string `json:"entity_type"` // "SPOILER" or "spoiler"
 	Offset     int    `json:"offset"`      // Starting position of the spoiler (0-indexed)
 	Length     int    `json:"length"`      // Length of the spoiler text from offset
+}
+
+// TextEntitiesResponse wraps text entities as returned by the API.
+// The API returns text_entities as {"data": [...]} rather than a flat array.
+type TextEntitiesResponse struct {
+	Data []TextEntity `json:"data"`
 }
 
 // TextAttachment represents a text attachment with optional styling

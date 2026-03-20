@@ -7,6 +7,9 @@ import (
 )
 
 // DeletePost deletes a specific post by ID with proper validation and confirmation.
+// Returns the deleted post ID as reported by the API. If the API response cannot
+// be parsed, the returned ID will be an empty string; a non-nil error is only
+// returned when the HTTP request itself fails or the server returns a non-200 status.
 // Note: The API enforces a limit of 100 deletes per 24-hour window. Check
 // PublishingLimits.DeleteQuotaUsage via GetPublishingLimits to monitor usage.
 // The threads_delete permission scope is required for this endpoint.

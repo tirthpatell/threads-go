@@ -480,6 +480,10 @@ func (c *Client) DebugToken(ctx context.Context, inputToken string) (*DebugToken
 // Unlike user access tokens, the returned token is NOT stored in the client — app tokens
 // serve a different purpose and should be managed separately by the caller.
 // This requires ClientID and ClientSecret to be set in the client configuration.
+//
+// NOTE: The Threads API requires GET for this endpoint (not the POST + body
+// approach specified in RFC 6749 §4.4). As a result, client_secret appears in
+// the request URL. Only call this from a server-side environment.
 func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse, error) {
 	params := url.Values{
 		"client_id":     {c.config.ClientID},
@@ -512,7 +516,11 @@ func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse
 // GetAppAccessTokenShorthand returns the shorthand app token in the form TH|<APP_ID>|<APP_SECRET>.
 // This can be used directly as an access token for certain API operations without making an API call.
 // See the Threads API documentation for which endpoints accept this format.
+// Returns an empty string if ClientID or ClientSecret are not configured.
 func (c *Client) GetAppAccessTokenShorthand() string {
+	if c.config.ClientID == "" || c.config.ClientSecret == "" {
+		return ""
+	}
 	return "TH|" + c.config.ClientID + "|" + c.config.ClientSecret
 }
 
