@@ -67,6 +67,19 @@ err = client.ExchangeCodeForToken(ctx, "auth-code-from-callback")
 err = client.GetLongLivedToken(ctx) // Convert to long-lived token
 ```
 
+### App Access Tokens
+
+For server-to-server use cases that don't require user authorization:
+
+```go
+// Full API call
+tokenResp, err := client.GetAppAccessToken(ctx)
+fmt.Println(tokenResp.AccessToken)
+
+// Or use the shorthand format (no API call needed)
+shorthand := client.GetAppAccessTokenShorthand() // "TH|<APP_ID>|<APP_SECRET>"
+```
+
 ### Environment Variables
 
 ```bash
