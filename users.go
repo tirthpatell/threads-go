@@ -237,6 +237,12 @@ func (c *Client) GetPublicProfilePosts(ctx context.Context, username string, opt
 		return nil, err
 	}
 
+	// Validate options
+	validator := NewValidator()
+	if err := validator.ValidatePostsOptions(opts); err != nil {
+		return nil, err
+	}
+
 	// Build query parameters with enhanced fields from API documentation
 	params := url.Values{
 		"username": {username},
@@ -246,9 +252,6 @@ func (c *Client) GetPublicProfilePosts(ctx context.Context, username string, opt
 	// Add pagination and filtering options if provided
 	if opts != nil {
 		if opts.Limit > 0 {
-			if opts.Limit > 100 {
-				return nil, NewValidationError(400, "Limit too large", "Maximum limit is 100 posts per request", "limit")
-			}
 			params.Set("limit", fmt.Sprintf("%d", opts.Limit))
 		}
 		if opts.Before != "" {
@@ -301,6 +304,12 @@ func (c *Client) GetUserReplies(ctx context.Context, userID UserID, opts *PostsO
 		return nil, err
 	}
 
+	// Validate options
+	validator := NewValidator()
+	if err := validator.ValidatePostsOptions(opts); err != nil {
+		return nil, err
+	}
+
 	// Build query parameters with reply-specific fields from API documentation
 	params := url.Values{
 		"fields": {ReplyFields},
@@ -309,9 +318,6 @@ func (c *Client) GetUserReplies(ctx context.Context, userID UserID, opts *PostsO
 	// Add pagination and filtering options if provided
 	if opts != nil {
 		if opts.Limit > 0 {
-			if opts.Limit > 100 {
-				return nil, NewValidationError(400, "Limit too large", "Maximum limit is 100 replies per request", "limit")
-			}
 			params.Set("limit", fmt.Sprintf("%d", opts.Limit))
 		}
 		if opts.Before != "" {

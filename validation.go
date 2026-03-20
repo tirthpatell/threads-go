@@ -381,6 +381,32 @@ func (v *Validator) ValidatePaginationOptions(opts *PaginationOptions) error {
 	return nil
 }
 
+// ValidatePostsOptions validates PostsOptions including pagination and timestamp fields.
+func (v *Validator) ValidatePostsOptions(opts *PostsOptions) error {
+	if opts == nil {
+		return nil
+	}
+
+	if err := v.ValidatePaginationOptions(&PaginationOptions{
+		Limit:  opts.Limit,
+		Before: opts.Before,
+		After:  opts.After,
+	}); err != nil {
+		return err
+	}
+
+	if opts.Since > 0 && opts.Since < MinSearchTimestamp {
+		return NewValidationError(400, "Invalid since timestamp",
+			fmt.Sprintf("since timestamp must be >= %d", MinSearchTimestamp), "since")
+	}
+	if opts.Until > 0 && opts.Until < MinSearchTimestamp {
+		return NewValidationError(400, "Invalid until timestamp",
+			fmt.Sprintf("until timestamp must be >= %d", MinSearchTimestamp), "until")
+	}
+
+	return nil
+}
+
 // ValidateSearchOptions validates search parameters
 func (v *Validator) ValidateSearchOptions(opts *SearchOptions) error {
 	if opts == nil {

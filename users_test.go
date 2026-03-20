@@ -274,11 +274,11 @@ func TestGetPublicProfilePosts_WithOptions(t *testing.T) {
 		if q.Get("after") != "cursor_after" {
 			t.Errorf("expected after=cursor_after, got %s", q.Get("after"))
 		}
-		if q.Get("since") != "1000000" {
-			t.Errorf("expected since=1000000, got %s", q.Get("since"))
+		if q.Get("since") != "1700000000" {
+			t.Errorf("expected since=1700000000, got %s", q.Get("since"))
 		}
-		if q.Get("until") != "2000000" {
-			t.Errorf("expected until=2000000, got %s", q.Get("until"))
+		if q.Get("until") != "1700100000" {
+			t.Errorf("expected until=1700100000, got %s", q.Get("until"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -289,8 +289,8 @@ func TestGetPublicProfilePosts_WithOptions(t *testing.T) {
 		Limit:  10,
 		Before: "cursor_before",
 		After:  "cursor_after",
-		Since:  1000000,
-		Until:  2000000,
+		Since:  1700000000,
+		Until:  1700100000,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -359,11 +359,11 @@ func TestGetUserReplies_WithOptions(t *testing.T) {
 		if q.Get("after") != "a_cursor" {
 			t.Errorf("expected after=a_cursor, got %s", q.Get("after"))
 		}
-		if q.Get("since") != "100" {
-			t.Errorf("expected since=100, got %s", q.Get("since"))
+		if q.Get("since") != "1700000000" {
+			t.Errorf("expected since=1700000000, got %s", q.Get("since"))
 		}
-		if q.Get("until") != "200" {
-			t.Errorf("expected until=200, got %s", q.Get("until"))
+		if q.Get("until") != "1700100000" {
+			t.Errorf("expected until=1700100000, got %s", q.Get("until"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -374,8 +374,8 @@ func TestGetUserReplies_WithOptions(t *testing.T) {
 		Limit:  5,
 		Before: "b_cursor",
 		After:  "a_cursor",
-		Since:  100,
-		Until:  200,
+		Since:  1700000000,
+		Until:  1700100000,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
