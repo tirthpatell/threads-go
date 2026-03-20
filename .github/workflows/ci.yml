@@ -94,6 +94,3 @@ jobs:
     steps:
     - name: Run govulncheck
       uses: golang/govulncheck-action@v1
-      with:
-        go-version-input: '1.24'
-        check-latest: true
