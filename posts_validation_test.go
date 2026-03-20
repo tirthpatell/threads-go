@@ -772,10 +772,7 @@ func TestValidateTextPostContent_PollMissingOptionA(t *testing.T) {
 func TestValidateTextPostContent_PollOptionTooLong(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
-	longOption := ""
-	for i := 0; i < MaxPollOptionLength+1; i++ {
-		longOption += "a"
-	}
+	longOption := strings.Repeat("a", MaxPollOptionLength+1)
 	err := client.ValidateTextPostContent(&TextPostContent{
 		Text: "Which do you prefer?",
 		PollAttachment: &PollAttachment{
@@ -803,10 +800,7 @@ func TestValidateImagePostContent_WithValidAltText(t *testing.T) {
 func TestValidateImagePostContent_AltTextTooLong(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
-	longAltText := ""
-	for i := 0; i < MaxAltTextLength+1; i++ {
-		longAltText += "a"
-	}
+	longAltText := strings.Repeat("a", MaxAltTextLength+1)
 	err := client.ValidateImagePostContent(&ImagePostContent{
 		ImageURL: "https://example.com/img.jpg",
 		AltText:  longAltText,
@@ -834,10 +828,7 @@ func TestValidateVideoPostContent_WithValidAltText(t *testing.T) {
 func TestValidateVideoPostContent_AltTextTooLong(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
-	longAltText := ""
-	for i := 0; i < MaxAltTextLength+1; i++ {
-		longAltText += "a"
-	}
+	longAltText := strings.Repeat("a", MaxAltTextLength+1)
 	err := client.ValidateVideoPostContent(&VideoPostContent{
 		VideoURL: "https://example.com/vid.mp4",
 		AltText:  longAltText,

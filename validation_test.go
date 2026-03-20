@@ -1,6 +1,7 @@
 package threads
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -366,15 +367,7 @@ func TestValidatePollAttachment(t *testing.T) {
 	})
 
 	t.Run("option A too long returns error", func(t *testing.T) {
-		longOption := string(make([]byte, MaxPollOptionLength+1))
-		for i := range []byte(longOption) {
-			longOption = longOption[:i] + "a" + longOption[i+1:]
-		}
-		// simpler approach:
-		longStr := ""
-		for i := 0; i < MaxPollOptionLength+1; i++ {
-			longStr += "a"
-		}
+		longStr := strings.Repeat("a", MaxPollOptionLength+1)
 		err := v.ValidatePollAttachment(&PollAttachment{
 			OptionA: longStr,
 			OptionB: "No",
@@ -388,10 +381,7 @@ func TestValidatePollAttachment(t *testing.T) {
 	})
 
 	t.Run("option C too long returns error", func(t *testing.T) {
-		longStr := ""
-		for i := 0; i < MaxPollOptionLength+1; i++ {
-			longStr += "a"
-		}
+		longStr := strings.Repeat("a", MaxPollOptionLength+1)
 		err := v.ValidatePollAttachment(&PollAttachment{
 			OptionA: "Yes",
 			OptionB: "No",
@@ -403,10 +393,7 @@ func TestValidatePollAttachment(t *testing.T) {
 	})
 
 	t.Run("option at max length is valid", func(t *testing.T) {
-		maxStr := ""
-		for i := 0; i < MaxPollOptionLength; i++ {
-			maxStr += "a"
-		}
+		maxStr := strings.Repeat("a", MaxPollOptionLength)
 		err := v.ValidatePollAttachment(&PollAttachment{
 			OptionA: maxStr,
 			OptionB: maxStr,
@@ -435,10 +422,7 @@ func TestValidateAltText(t *testing.T) {
 	})
 
 	t.Run("alt text at max length is valid", func(t *testing.T) {
-		maxStr := ""
-		for i := 0; i < MaxAltTextLength; i++ {
-			maxStr += "a"
-		}
+		maxStr := strings.Repeat("a", MaxAltTextLength)
 		err := v.ValidateAltText(maxStr)
 		if err != nil {
 			t.Errorf("Expected no error for max-length alt text, got: %v", err)
@@ -446,10 +430,7 @@ func TestValidateAltText(t *testing.T) {
 	})
 
 	t.Run("alt text too long returns error", func(t *testing.T) {
-		longStr := ""
-		for i := 0; i < MaxAltTextLength+1; i++ {
-			longStr += "a"
-		}
+		longStr := strings.Repeat("a", MaxAltTextLength+1)
 		err := v.ValidateAltText(longStr)
 		if err == nil {
 			t.Fatal("Expected error for alt text too long")
@@ -461,10 +442,7 @@ func TestValidateAltText(t *testing.T) {
 
 	t.Run("unicode characters counted correctly", func(t *testing.T) {
 		// Each Japanese character is 1 rune but 3 bytes; MaxAltTextLength runes should be valid
-		runeStr := ""
-		for i := 0; i < MaxAltTextLength; i++ {
-			runeStr += "あ"
-		}
+		runeStr := strings.Repeat("あ", MaxAltTextLength)
 		err := v.ValidateAltText(runeStr)
 		if err != nil {
 			t.Errorf("Expected no error for %d-rune alt text, got: %v", MaxAltTextLength, err)
