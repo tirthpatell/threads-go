@@ -5,6 +5,8 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 12 * * *' # daily at noon UTC
 
 permissions:
   contents: read
@@ -86,3 +88,9 @@ jobs:
         files: coverage.out
         fail_ci_if_error: false
         token: ${{ secrets.CODECOV_TOKEN }}
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Run govulncheck
+      uses: golang/govulncheck-action@v1
