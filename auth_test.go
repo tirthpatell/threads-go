@@ -656,6 +656,138 @@ func TestSetTokenFromDebugInfo_WithLogger(t *testing.T) {
 	}
 }
 
+func TestGetAppAccessToken_Success(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path != "/oauth/access_token" {
+			http.NotFound(w, r)
+			return
+		}
+		q := r.URL.Query()
+		if q.Get("grant_type") != "client_credentials" {
+			w.WriteHeader(400)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"access_token":"TH|test-client-id|some_token","token_type":"bearer"}`))
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(server.Close)
+
+	config := &Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	config.BaseURL = server.URL
+
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.GetAppAccessToken(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.AccessToken != "TH|test-client-id|some_token" {
+		t.Errorf("expected TH|test-client-id|some_token, got %s", resp.AccessToken)
+	}
+	if resp.TokenType != "bearer" {
+		t.Errorf("expected bearer, got %s", resp.TokenType)
+	}
+	// App token must NOT be stored in client
+	if client.GetAccessToken() != "" {
+		t.Error("expected client access token to remain empty after GetAppAccessToken")
+	}
+}
+
+func TestGetAppAccessToken_ServerError(t *testing.T) {
+	client := testClientNoAuth(t, jsonHandler(401, `{"error":{"message":"invalid credentials","type":"OAuthException","code":100}}`))
+	_, err := client.GetAppAccessToken(context.Background())
+	if err == nil {
+		t.Fatal("expected error for server error response")
+	}
+}
+
+func TestGetAppAccessToken_ParseError(t *testing.T) {
+	client := testClientNoAuth(t, jsonHandler(200, `not valid json`))
+	_, err := client.GetAppAccessToken(context.Background())
+	if err == nil {
+		t.Fatal("expected error for invalid JSON response")
+	}
+}
+
+func TestGetAppAccessToken_WithLogger(t *testing.T) {
+	handler := jsonHandler(200, `{"access_token":"TH|id|tok","token_type":"bearer"}`)
+	config := testClientConfig(t, handler)
+	config.Logger = &noopLogger{}
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := client.GetAppAccessToken(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.AccessToken != "TH|id|tok" {
+		t.Errorf("expected TH|id|tok, got %s", resp.AccessToken)
+	}
+}
+
+func TestGetAppAccessTokenShorthand(t *testing.T) {
+	config := &Config{
+		ClientID:     "my-app-123",
+		ClientSecret: "my-secret-abc",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shorthand := client.GetAppAccessTokenShorthand()
+	expected := "TH|my-app-123|my-secret-abc"
+	if shorthand != expected {
+		t.Errorf("expected %q, got %q", expected, shorthand)
+	}
+}
+
+func TestGetAppAccessTokenShorthand_Format(t *testing.T) {
+	config := &Config{
+		ClientID:     "appid",
+		ClientSecret: "appsecret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shorthand := client.GetAppAccessTokenShorthand()
+	if !strings.HasPrefix(shorthand, "TH|") {
+		t.Errorf("expected shorthand to start with TH|, got %q", shorthand)
+	}
+	parts := strings.Split(shorthand, "|")
+	if len(parts) != 3 {
+		t.Errorf("expected 3 pipe-separated parts, got %d: %q", len(parts), shorthand)
+	}
+	if parts[1] != "appid" {
+		t.Errorf("expected app ID appid in shorthand, got %q", parts[1])
+	}
+	if parts[2] != "appsecret" {
+		t.Errorf("expected app secret appsecret in shorthand, got %q", parts[2])
+	}
+}
+
 func TestTokenExpiration(t *testing.T) {
 	config := &Config{
 		ClientID:     "test-id",

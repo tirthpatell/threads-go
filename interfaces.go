@@ -39,6 +39,12 @@ type Authenticator interface {
 
 	// GetTokenDebugInfo returns detailed token information
 	GetTokenDebugInfo() map[string]interface{}
+
+	// GetAppAccessToken generates an app access token via the client_credentials flow
+	GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse, error)
+
+	// GetAppAccessTokenShorthand returns the TH|APP_ID|APP_SECRET shorthand token
+	GetAppAccessTokenShorthand() string
 }
 
 // PostManager handles post creation, retrieval, and management

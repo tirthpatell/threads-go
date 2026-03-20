@@ -31,6 +31,13 @@ type LongLivedTokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
+// AppAccessTokenResponse represents the response from the client_credentials token endpoint.
+// Unlike user token responses, app access tokens do not include expires_in or user_id fields.
+type AppAccessTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+}
+
 // generateState generates a random state parameter for OAuth security
 func generateState() (string, error) {
 	b := make([]byte, 32)
@@ -467,6 +474,46 @@ func (c *Client) DebugToken(ctx context.Context, inputToken string) (*DebugToken
 	}
 
 	return &debugResp, nil
+}
+
+// GetAppAccessToken generates an app access token via the client_credentials OAuth flow.
+// Unlike user access tokens, the returned token is NOT stored in the client — app tokens
+// serve a different purpose and should be managed separately by the caller.
+// This requires ClientID and ClientSecret to be set in the client configuration.
+func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse, error) {
+	params := url.Values{
+		"client_id":     {c.config.ClientID},
+		"client_secret": {c.config.ClientSecret},
+		"grant_type":    {"client_credentials"},
+	}
+
+	resp, err := c.httpClient.GET("/oauth/access_token", params, "")
+	if err != nil {
+		return nil, NewNetworkError(0, "Failed to get app access token", err.Error(), true)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleTokenError(resp.StatusCode, resp.Body)
+	}
+
+	var tokenResp AppAccessTokenResponse
+	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+		return nil, NewAPIError(resp.StatusCode, "Failed to parse app access token response", err.Error(), "")
+	}
+
+	if c.config.Logger != nil {
+		c.config.Logger.Info("Successfully obtained app access token",
+			"token_type", tokenResp.TokenType)
+	}
+
+	return &tokenResp, nil
+}
+
+// GetAppAccessTokenShorthand returns the shorthand app token in the form TH|<APP_ID>|<APP_SECRET>.
+// This can be used directly as an access token for certain API operations without making an API call.
+// See the Threads API documentation for which endpoints accept this format.
+func (c *Client) GetAppAccessTokenShorthand() string {
+	return "TH|" + c.config.ClientID + "|" + c.config.ClientSecret
 }
 
 // SetTokenFromDebugInfo creates and sets token info from debug token response.
