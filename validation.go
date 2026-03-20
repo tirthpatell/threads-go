@@ -168,6 +168,14 @@ func (v *Validator) ValidatePollAttachment(poll *PollAttachment) error {
 			"poll_attachment.option_b")
 	}
 
+	// Options must be sequential: D requires C
+	if poll.OptionD != "" && poll.OptionC == "" {
+		return NewValidationError(400,
+			"Poll option C required before D",
+			"Cannot set option_d without option_c",
+			"poll_attachment.option_c")
+	}
+
 	// Validate length of each provided option
 	options := []struct {
 		value string

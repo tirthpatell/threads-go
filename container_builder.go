@@ -217,9 +217,9 @@ func (b *ContainerBuilder) SetGIFAttachment(gifAttachment *GIFAttachment) *Conta
 }
 
 // SetIsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed).
-// Ghost posts are only supported for TEXT media type. If the builder's media_type is set to
-// a non-TEXT value, this call is silently ignored.
-// Note: Call SetMediaType before SetIsGhostPost to ensure the media type guard is effective.
+// Ghost posts are only supported for TEXT media type. If the builder's media_type is already set
+// to a non-TEXT value this call is silently ignored; if a non-TEXT type is set after this call,
+// SetMediaType will automatically clear the flag.
 func (b *ContainerBuilder) SetIsGhostPost(isGhostPost bool) *ContainerBuilder {
 	if isGhostPost {
 		// Ghost posts are only allowed for TEXT media type

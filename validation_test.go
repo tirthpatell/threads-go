@@ -392,6 +392,20 @@ func TestValidatePollAttachment(t *testing.T) {
 		}
 	})
 
+	t.Run("option D without C returns error", func(t *testing.T) {
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "Yes",
+			OptionB: "No",
+			OptionD: "Maybe",
+		})
+		if err == nil {
+			t.Fatal("Expected error for option D without option C")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
 	t.Run("option at max length is valid", func(t *testing.T) {
 		maxStr := strings.Repeat("a", MaxPollOptionLength)
 		err := v.ValidatePollAttachment(&PollAttachment{
