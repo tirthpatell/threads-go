@@ -69,12 +69,11 @@ err = client.GetLongLivedToken(ctx) // Convert to long-lived token
 
 ### App Access Tokens
 
-For server-to-server use cases that don't require user authorization:
+For APIs that require app-level auth instead of user tokens (e.g., oEmbed):
 
 ```go
-// Full API call
+// Full API call (server-side only — exposes app secret)
 tokenResp, err := client.GetAppAccessToken(ctx)
-fmt.Println(tokenResp.AccessToken)
 
 // Or use the shorthand format (no API call needed)
 shorthand := client.GetAppAccessTokenShorthand() // "TH|<APP_ID>|<APP_SECRET>"
