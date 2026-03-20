@@ -82,22 +82,29 @@ type Post struct {
 	// Available for replies and mentions. For conversations, only available on direct replies.
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	// ReplyApprovalStatus is the approval status of a pending reply ("pending" or "ignored")
-	ReplyApprovalStatus string `json:"reply_approval_status,omitempty"`
+	ReplyApprovalStatus     string          `json:"reply_approval_status,omitempty"`
+	IsSpoilerMedia          bool            `json:"is_spoiler_media,omitempty"`
+	TextEntities            []TextEntity    `json:"text_entities,omitempty"`
+	TextAttachment          *TextAttachment `json:"text_attachment,omitempty"`
+	AllowlistedCountryCodes []string        `json:"allowlisted_country_codes,omitempty"`
+	LocationID              string          `json:"location_id,omitempty"`
+	Location                *Location       `json:"location,omitempty"`
 }
 
 // User represents a Threads user profile with app-scoped data.
 // The user ID and other fields are specific to your app and cannot be used
 // with other apps. Contains basic profile information accessible via API.
 type User struct {
-	ID             string `json:"id"`
-	Username       string `json:"username"`
-	Name           string `json:"name,omitempty"`            // Available with appropriate fields
-	ProfilePicURL  string `json:"profile_pic_url,omitempty"` // Maps to threads_profile_picture_url
-	Biography      string `json:"biography,omitempty"`       // Maps to threads_biography
-	Website        string `json:"website,omitempty"`         // Not available in basic profile
-	FollowersCount int    `json:"followers_count"`           // Not available in basic profile
-	MediaCount     int    `json:"media_count"`               // Not available in basic profile
-	IsVerified     bool   `json:"is_verified,omitempty"`     // Available with is_verified field
+	ID                     string `json:"id"`
+	Username               string `json:"username"`
+	Name                   string `json:"name,omitempty"`                       // Available with appropriate fields
+	ProfilePicURL          string `json:"profile_pic_url,omitempty"`            // Maps to threads_profile_picture_url
+	Biography              string `json:"biography,omitempty"`                  // Maps to threads_biography
+	Website                string `json:"website,omitempty"`                    // Not available in basic profile
+	FollowersCount         int    `json:"followers_count"`                      // Not available in basic profile
+	MediaCount             int    `json:"media_count"`                          // Not available in basic profile
+	IsVerified             bool   `json:"is_verified,omitempty"`                // Available with is_verified field
+	IsEligibleForGeoGating bool   `json:"is_eligible_for_geo_gating,omitempty"` // Whether geo-gating is available for this user
 }
 
 // PublicUser represents a public Threads user profile retrieved via the
@@ -242,6 +249,31 @@ const (
 	ReplyControlFollowersOnly ReplyControl = "followers_only"
 )
 
+// ReplyAudience represents the audience restriction returned by the API when reading posts.
+// This is the read-side counterpart to ReplyControl (which is used for creation).
+// The API returns reply_audience in UPPERCASE values.
+type ReplyAudience string
+
+const (
+	ReplyAudienceEveryone             ReplyAudience = "EVERYONE"
+	ReplyAudienceAccountsYouFollow    ReplyAudience = "ACCOUNTS_YOU_FOLLOW"
+	ReplyAudienceMentionedOnly        ReplyAudience = "MENTIONED_ONLY"
+	ReplyAudienceParentPostAuthorOnly ReplyAudience = "PARENT_POST_AUTHOR_ONLY"
+	ReplyAudienceFollowersOnly        ReplyAudience = "FOLLOWERS_ONLY"
+)
+
+// HideStatus represents the visibility status of a reply
+type HideStatus string
+
+const (
+	HideStatusNotHushed  HideStatus = "NOT_HUSHED"
+	HideStatusUnhushed   HideStatus = "UNHUSHED"
+	HideStatusHidden     HideStatus = "HIDDEN"
+	HideStatusCovered    HideStatus = "COVERED"
+	HideStatusBlocked    HideStatus = "BLOCKED"
+	HideStatusRestricted HideStatus = "RESTRICTED"
+)
+
 // PostsResponse represents a paginated response containing multiple posts.
 // Use the Paging field to navigate through large result sets.
 // This is returned by endpoints like GetUserPosts, SearchPosts, etc.
@@ -286,7 +318,8 @@ type Value struct {
 
 // TotalValue represents an aggregated metric value
 type TotalValue struct {
-	Value int `json:"value"`
+	Value   int    `json:"value"`
+	LinkURL string `json:"link_url,omitempty"` // URL for click metrics
 }
 
 // Paging represents pagination information for navigating through result sets.
@@ -396,6 +429,8 @@ type PublishingLimits struct {
 	DeleteConfig             QuotaConfig `json:"delete_config"`
 	LocationSearchQuotaUsage int         `json:"location_search_quota_usage"`
 	LocationSearchConfig     QuotaConfig `json:"location_search_config"`
+	SearchQuotaUsage         int         `json:"search_quota_usage"`
+	SearchConfig             QuotaConfig `json:"search_config"`
 }
 
 // QuotaConfig represents quota configuration for a specific operation type.

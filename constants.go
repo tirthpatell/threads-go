@@ -44,7 +44,7 @@ const (
 // Field Sets for API requests
 const (
 	// Post fields
-	PostExtendedFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,alt_text,link_attachment_url,has_replies,reply_audience,quoted_post,reposted_post,gif_url,is_verified,profile_picture_url"
+	PostExtendedFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,children,is_quote_post,alt_text,link_attachment_url,has_replies,reply_audience,quoted_post,reposted_post,gif_url,is_verified,profile_picture_url,poll_attachment,topic_tag,is_spoiler_media,text_entities,text_attachment,location_id,location,allowlisted_country_codes,ghost_post_status,ghost_post_expiration_timestamp,is_reply,root_post,replied_to,is_reply_owned_by_me,hide_status,reply_approval_status"
 
 	// Ghost Post fields
 	GhostPostFields = "id,media_product_type,media_type,media_url,permalink,owner,username,text,timestamp,shortcode,thumbnail_url,ghost_post_status,ghost_post_expiration_timestamp"
@@ -62,7 +62,7 @@ const (
 	LocationFields = "id,address,name,city,country,latitude,longitude,postal_code"
 
 	// Publishing limit fields
-	PublishingLimitFields = "quota_usage,config,reply_quota_usage,reply_config,delete_quota_usage,delete_config,location_search_quota_usage,location_search_config"
+	PublishingLimitFields = "quota_usage,config,reply_quota_usage,reply_config,delete_quota_usage,delete_config,location_search_quota_usage,location_search_config,search_quota_usage,search_config"
 )
 
 // Container Status values
@@ -84,6 +84,26 @@ const (
 	MediaTypeImage    = "IMAGE"
 	MediaTypeVideo    = "VIDEO"
 	MediaTypeCarousel = "CAROUSEL"
+
+	// Response media types (returned by the API when retrieving posts)
+	MediaTypeResponseText     = "TEXT_POST"
+	MediaTypeResponseCarousel = "CAROUSEL_ALBUM"
+	MediaTypeAudio            = "AUDIO"
+	MediaTypeRepostFacade     = "REPOST_FACADE"
+)
+
+// Container error messages returned by the API
+const (
+	ContainerErrFailedDownloadingVideo    = "FAILED_DOWNLOADING_VIDEO"
+	ContainerErrFailedProcessingAudio     = "FAILED_PROCESSING_AUDIO"
+	ContainerErrFailedProcessingVideo     = "FAILED_PROCESSING_VIDEO"
+	ContainerErrInvalidAspectRatio        = "INVALID_ASPEC_RATIO" // Note: API has typo "ASPEC"
+	ContainerErrInvalidBitRate            = "INVALID_BIT_RATE"
+	ContainerErrInvalidDuration           = "INVALID_DURATION"
+	ContainerErrInvalidFrameRate          = "INVALID_FRAME_RATE"
+	ContainerErrInvalidAudioChannels      = "INVALID_AUDIO_CHANNELS"
+	ContainerErrInvalidAudioChannelLayout = "INVALID_AUDIO_CHANNEL_LAYOUT"
+	ContainerErrUnknown                   = "UNKNOWN"
 )
 
 // Error messages
