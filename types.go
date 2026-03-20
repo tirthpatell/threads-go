@@ -63,7 +63,7 @@ type Post struct {
 	IsQuotePost                  bool          `json:"is_quote_post,omitempty"`
 	LinkAttachmentURL            string        `json:"link_attachment_url,omitempty"`
 	HasReplies                   bool          `json:"has_replies,omitempty"`
-	ReplyAudience                string        `json:"reply_audience,omitempty"`
+	ReplyAudience                ReplyAudience `json:"reply_audience,omitempty"`
 	QuotedPost                   *Post         `json:"quoted_post,omitempty"`
 	RepostedPost                 *Post         `json:"reposted_post,omitempty"`
 	GifURL                       string        `json:"gif_url,omitempty"`
@@ -71,7 +71,7 @@ type Post struct {
 	RootPost                     *Post         `json:"root_post,omitempty"`
 	RepliedTo                    *Post         `json:"replied_to,omitempty"`
 	IsReplyOwnedByMe             bool          `json:"is_reply_owned_by_me,omitempty"`
-	HideStatus                   string        `json:"hide_status,omitempty"`
+	HideStatus                   HideStatus    `json:"hide_status,omitempty"`
 	TopicTag                     string        `json:"topic_tag,omitempty"`
 	GhostPostStatus              string        `json:"ghost_post_status,omitempty"`
 	GhostPostExpirationTimestamp Time          `json:"ghost_post_expiration_timestamp,omitempty"`
