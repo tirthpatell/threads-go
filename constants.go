@@ -128,4 +128,12 @@ const (
 	// This error occurs during media container creation (POST /{threads-user-id}/threads).
 	// Reduce the number of unique links to 5 or fewer to resolve.
 	ErrCodeLinkLimitExceeded = "THREADS_API__LINK_LIMIT_EXCEEDED"
+
+	// ErrCodeFeatureNotAvailable is returned when a feature is not available for the user.
+	// For example, geo-gating requires feature approval before it can be used.
+	ErrCodeFeatureNotAvailable = "THREADS_API__FEATURE_NOT_AVAILABLE"
+
+	// ErrCodeGeoGatingInvalidCountryCodes is returned when invalid country codes
+	// are provided for geo-gated posts.
+	ErrCodeGeoGatingInvalidCountryCodes = "THREADS_API__GEO_GATING_INVALID_COUNTRY_CODES"
 )
