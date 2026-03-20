@@ -150,7 +150,7 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Posts
 		return nil, err
 	}
 
-	// Validate pagination options
+	// Validate options
 	validator := NewValidator()
 	if opts != nil {
 		paginationOpts := &PaginationOptions{
@@ -160,6 +160,14 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Posts
 		}
 		if err := validator.ValidatePaginationOptions(paginationOpts); err != nil {
 			return nil, err
+		}
+		if opts.Since > 0 && opts.Since < MinSearchTimestamp {
+			return nil, NewValidationError(400, "Invalid since timestamp",
+				fmt.Sprintf("since timestamp must be >= %d", MinSearchTimestamp), "since")
+		}
+		if opts.Until > 0 && opts.Until < MinSearchTimestamp {
+			return nil, NewValidationError(400, "Invalid until timestamp",
+				fmt.Sprintf("until timestamp must be >= %d", MinSearchTimestamp), "until")
 		}
 	}
 

@@ -70,6 +70,19 @@ func TestContainerBuilder_SetIsGhostPost_NoMediaType_ThenImage(t *testing.T) {
 	}
 }
 
+func TestContainerBuilder_SetIsGhostPost_ToggleTrueToFalse(t *testing.T) {
+	// Setting true then false should clear the flag
+	b := NewContainerBuilder().
+		SetMediaType(MediaTypeText).
+		SetIsGhostPost(true).
+		SetIsGhostPost(false)
+
+	params := b.Build()
+	if params.Get("is_ghost_post") != "" {
+		t.Error("expected is_ghost_post to be cleared after SetIsGhostPost(false)")
+	}
+}
+
 func TestContainerBuilder_SetIsGhostPost_False_NotSet(t *testing.T) {
 	b := NewContainerBuilder().
 		SetMediaType(MediaTypeText).

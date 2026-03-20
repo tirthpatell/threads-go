@@ -406,6 +406,19 @@ func TestValidatePollAttachment(t *testing.T) {
 		}
 	})
 
+	t.Run("whitespace-only option returns error", func(t *testing.T) {
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "Yes",
+			OptionB: "   ",
+		})
+		if err == nil {
+			t.Fatal("Expected error for whitespace-only option")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
 	t.Run("option at max length is valid", func(t *testing.T) {
 		maxStr := strings.Repeat("a", MaxPollOptionLength)
 		err := v.ValidatePollAttachment(&PollAttachment{

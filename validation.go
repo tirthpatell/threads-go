@@ -191,6 +191,12 @@ func (v *Validator) ValidatePollAttachment(poll *PollAttachment) error {
 		if opt.value == "" {
 			continue // optional options can be empty
 		}
+		if strings.TrimSpace(opt.value) == "" {
+			return NewValidationError(400,
+				"Poll option cannot be blank",
+				fmt.Sprintf("Poll option in %s must contain non-whitespace characters", opt.field),
+				opt.field)
+		}
 		if utf8.RuneCountInString(opt.value) > MaxPollOptionLength {
 			return NewValidationError(400,
 				"Poll option too long",

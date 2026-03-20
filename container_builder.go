@@ -229,6 +229,8 @@ func (b *ContainerBuilder) SetIsGhostPost(isGhostPost bool) *ContainerBuilder {
 			return b
 		}
 		b.params.Set("is_ghost_post", "true")
+	} else {
+		b.params.Del("is_ghost_post")
 	}
 	return b
 }

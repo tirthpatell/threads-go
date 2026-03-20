@@ -291,6 +291,20 @@ func TestGetUserMentions_ServerError(t *testing.T) {
 	}
 }
 
+func TestGetUserMentions_InvalidSinceTimestamp(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), &PostsOptions{
+		Since: 100, // Below MinSearchTimestamp
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid since timestamp")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
 func TestGetUserGhostPosts_InvalidUserID(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
