@@ -106,9 +106,28 @@ func (v *Validator) ValidateTextAttachment(textAttachment *TextAttachment) error
 	return nil
 }
 
-// validateTextStylingRanges checks that text styling ranges don't overlap
+// validateTextStylingRanges checks that text styling ranges don't overlap and that
+// each styling entry contains only valid style values.
 func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) error {
+	validStyles := map[string]bool{
+		"bold":          true,
+		"italic":        true,
+		"highlight":     true,
+		"underline":     true,
+		"strikethrough": true,
+	}
+
 	for i := 0; i < len(stylingInfo); i++ {
+		// Validate style values
+		for _, style := range stylingInfo[i].StylingInfo {
+			if !validStyles[style] {
+				return NewValidationError(400,
+					"Invalid text styling value",
+					fmt.Sprintf("Text styling range %d contains invalid style '%s'. Valid styles are: bold, italic, highlight, underline, strikethrough", i, style),
+					"text_attachment.text_with_styling_info")
+			}
+		}
+
 		for j := i + 1; j < len(stylingInfo); j++ {
 			// Check if ranges overlap
 			start1, end1 := stylingInfo[i].Offset, stylingInfo[i].Offset+stylingInfo[i].Length
@@ -122,6 +141,69 @@ func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) err
 					"text_attachment.text_with_styling_info")
 			}
 		}
+	}
+	return nil
+}
+
+// ValidatePollAttachment validates poll attachment options.
+// Options A and B are required; options C and D are optional.
+// Each provided option must be 1-25 characters.
+func (v *Validator) ValidatePollAttachment(poll *PollAttachment) error {
+	if poll == nil {
+		return nil // Poll attachment is optional
+	}
+
+	// Options A and B are required
+	if poll.OptionA == "" {
+		return NewValidationError(400,
+			"Poll option A required",
+			"Poll attachment must have option_a",
+			"poll_attachment.option_a")
+	}
+	if poll.OptionB == "" {
+		return NewValidationError(400,
+			"Poll option B required",
+			"Poll attachment must have option_b",
+			"poll_attachment.option_b")
+	}
+
+	// Validate length of each provided option
+	options := []struct {
+		value string
+		field string
+	}{
+		{poll.OptionA, "poll_attachment.option_a"},
+		{poll.OptionB, "poll_attachment.option_b"},
+		{poll.OptionC, "poll_attachment.option_c"},
+		{poll.OptionD, "poll_attachment.option_d"},
+	}
+
+	for _, opt := range options {
+		if opt.value == "" {
+			continue // optional options can be empty
+		}
+		if utf8.RuneCountInString(opt.value) > MaxPollOptionLength {
+			return NewValidationError(400,
+				"Poll option too long",
+				fmt.Sprintf("Poll option in %s must be at most %d characters", opt.field, MaxPollOptionLength),
+				opt.field)
+		}
+	}
+
+	return nil
+}
+
+// ValidateAltText validates alt text for media posts.
+// Alt text is optional but cannot exceed MaxAltTextLength characters.
+func (v *Validator) ValidateAltText(altText string) error {
+	if altText == "" {
+		return nil // Alt text is optional
+	}
+	if utf8.RuneCountInString(altText) > MaxAltTextLength {
+		return NewValidationError(400,
+			"Alt text too long",
+			fmt.Sprintf("Alt text is limited to %d characters", MaxAltTextLength),
+			"alt_text")
 	}
 	return nil
 }

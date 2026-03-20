@@ -38,6 +38,11 @@ func (c *Client) ValidateTextPostContent(content *TextPostContent) error {
 		return err
 	}
 
+	// Validate poll attachment if present
+	if err := validator.ValidatePollAttachment(content.PollAttachment); err != nil {
+		return err
+	}
+
 	// Text attachment can only be used with TEXT-only posts
 	if content.TextAttachment != nil {
 		// Cannot be used with polls
@@ -118,6 +123,11 @@ func (c *Client) ValidateImagePostContent(content *ImagePostContent) error {
 		return err
 	}
 
+	// Validate alt text if present
+	if err := validator.ValidateAltText(content.AltText); err != nil {
+		return err
+	}
+
 	// Validate topic tag if present
 	if content.TopicTag != "" {
 		if err := validator.ValidateTopicTag(content.TopicTag); err != nil {
@@ -160,6 +170,11 @@ func (c *Client) ValidateVideoPostContent(content *VideoPostContent) error {
 
 	// Validate video URL
 	if err := validator.ValidateMediaURL(content.VideoURL, "video"); err != nil {
+		return err
+	}
+
+	// Validate alt text if present
+	if err := validator.ValidateAltText(content.AltText); err != nil {
 		return err
 	}
 

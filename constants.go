@@ -25,6 +25,14 @@ const (
 	// Reply processing
 	ReplyPublishDelay = 10 * time.Second // Recommended delay before publishing reply
 
+	// Poll limits
+	MinPollOptions      = 2  // Minimum poll options (A and B required)
+	MaxPollOptions      = 4  // Maximum poll options
+	MaxPollOptionLength = 25 // Maximum characters per poll option
+
+	// Alt text limits
+	MaxAltTextLength = 1000 // Maximum characters for alt text
+
 	// Search constraints
 	MinSearchTimestamp = 1688540400 // Minimum timestamp for search queries (July 5, 2023)
 

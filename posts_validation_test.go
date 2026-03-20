@@ -736,6 +736,117 @@ func TestValidateCarouselPostContent_WithTextEntities(t *testing.T) {
 	}
 }
 
+func TestValidateTextPostContent_WithValidPoll(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	err := client.ValidateTextPostContent(&TextPostContent{
+		Text: "Which do you prefer?",
+		PollAttachment: &PollAttachment{
+			OptionA: "Option A",
+			OptionB: "Option B",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateTextPostContent_PollMissingOptionA(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	err := client.ValidateTextPostContent(&TextPostContent{
+		Text: "Which do you prefer?",
+		PollAttachment: &PollAttachment{
+			OptionA: "",
+			OptionB: "Option B",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for poll missing option A")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestValidateTextPostContent_PollOptionTooLong(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	longOption := ""
+	for i := 0; i < MaxPollOptionLength+1; i++ {
+		longOption += "a"
+	}
+	err := client.ValidateTextPostContent(&TextPostContent{
+		Text: "Which do you prefer?",
+		PollAttachment: &PollAttachment{
+			OptionA: longOption,
+			OptionB: "Option B",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for poll option too long")
+	}
+}
+
+func TestValidateImagePostContent_WithValidAltText(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	err := client.ValidateImagePostContent(&ImagePostContent{
+		ImageURL: "https://example.com/img.jpg",
+		AltText:  "A beautiful photo",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateImagePostContent_AltTextTooLong(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	longAltText := ""
+	for i := 0; i < MaxAltTextLength+1; i++ {
+		longAltText += "a"
+	}
+	err := client.ValidateImagePostContent(&ImagePostContent{
+		ImageURL: "https://example.com/img.jpg",
+		AltText:  longAltText,
+	})
+	if err == nil {
+		t.Fatal("expected error for alt text too long")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestValidateVideoPostContent_WithValidAltText(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	err := client.ValidateVideoPostContent(&VideoPostContent{
+		VideoURL: "https://example.com/vid.mp4",
+		AltText:  "A short video clip",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateVideoPostContent_AltTextTooLong(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+
+	longAltText := ""
+	for i := 0; i < MaxAltTextLength+1; i++ {
+		longAltText += "a"
+	}
+	err := client.ValidateVideoPostContent(&VideoPostContent{
+		VideoURL: "https://example.com/vid.mp4",
+		AltText:  longAltText,
+	})
+	if err == nil {
+		t.Fatal("expected error for alt text too long")
+	}
+}
+
 func TestValidateImagePostContent_TooManyLinks(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 

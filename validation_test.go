@@ -307,6 +307,225 @@ func TestValidateSearchOptions(t *testing.T) {
 	})
 }
 
+func TestValidatePollAttachment(t *testing.T) {
+	v := NewValidator()
+
+	t.Run("nil is valid", func(t *testing.T) {
+		err := v.ValidatePollAttachment(nil)
+		if err != nil {
+			t.Errorf("Expected no error for nil, got: %v", err)
+		}
+	})
+
+	t.Run("valid two options", func(t *testing.T) {
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "Yes",
+			OptionB: "No",
+		})
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("valid four options", func(t *testing.T) {
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "Option A",
+			OptionB: "Option B",
+			OptionC: "Option C",
+			OptionD: "Option D",
+		})
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("missing option A returns error", func(t *testing.T) {
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "",
+			OptionB: "No",
+		})
+		if err == nil {
+			t.Fatal("Expected error for missing option A")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
+	t.Run("missing option B returns error", func(t *testing.T) {
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "Yes",
+			OptionB: "",
+		})
+		if err == nil {
+			t.Fatal("Expected error for missing option B")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
+	t.Run("option A too long returns error", func(t *testing.T) {
+		longOption := string(make([]byte, MaxPollOptionLength+1))
+		for i := range []byte(longOption) {
+			longOption = longOption[:i] + "a" + longOption[i+1:]
+		}
+		// simpler approach:
+		longStr := ""
+		for i := 0; i < MaxPollOptionLength+1; i++ {
+			longStr += "a"
+		}
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: longStr,
+			OptionB: "No",
+		})
+		if err == nil {
+			t.Fatal("Expected error for option A too long")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
+	t.Run("option C too long returns error", func(t *testing.T) {
+		longStr := ""
+		for i := 0; i < MaxPollOptionLength+1; i++ {
+			longStr += "a"
+		}
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: "Yes",
+			OptionB: "No",
+			OptionC: longStr,
+		})
+		if err == nil {
+			t.Fatal("Expected error for option C too long")
+		}
+	})
+
+	t.Run("option at max length is valid", func(t *testing.T) {
+		maxStr := ""
+		for i := 0; i < MaxPollOptionLength; i++ {
+			maxStr += "a"
+		}
+		err := v.ValidatePollAttachment(&PollAttachment{
+			OptionA: maxStr,
+			OptionB: maxStr,
+		})
+		if err != nil {
+			t.Errorf("Expected no error for max-length options, got: %v", err)
+		}
+	})
+}
+
+func TestValidateAltText(t *testing.T) {
+	v := NewValidator()
+
+	t.Run("empty is valid", func(t *testing.T) {
+		err := v.ValidateAltText("")
+		if err != nil {
+			t.Errorf("Expected no error for empty alt text, got: %v", err)
+		}
+	})
+
+	t.Run("valid alt text", func(t *testing.T) {
+		err := v.ValidateAltText("A beautiful sunset over the ocean")
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("alt text at max length is valid", func(t *testing.T) {
+		maxStr := ""
+		for i := 0; i < MaxAltTextLength; i++ {
+			maxStr += "a"
+		}
+		err := v.ValidateAltText(maxStr)
+		if err != nil {
+			t.Errorf("Expected no error for max-length alt text, got: %v", err)
+		}
+	})
+
+	t.Run("alt text too long returns error", func(t *testing.T) {
+		longStr := ""
+		for i := 0; i < MaxAltTextLength+1; i++ {
+			longStr += "a"
+		}
+		err := v.ValidateAltText(longStr)
+		if err == nil {
+			t.Fatal("Expected error for alt text too long")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
+	t.Run("unicode characters counted correctly", func(t *testing.T) {
+		// Each Japanese character is 1 rune but 3 bytes; MaxAltTextLength runes should be valid
+		runeStr := ""
+		for i := 0; i < MaxAltTextLength; i++ {
+			runeStr += "あ"
+		}
+		err := v.ValidateAltText(runeStr)
+		if err != nil {
+			t.Errorf("Expected no error for %d-rune alt text, got: %v", MaxAltTextLength, err)
+		}
+	})
+}
+
+func TestValidateTextStylingValues(t *testing.T) {
+	v := NewValidator()
+
+	t.Run("valid bold style", func(t *testing.T) {
+		err := v.validateTextStylingRanges([]TextStylingInfo{
+			{Offset: 0, Length: 5, StylingInfo: []string{"bold"}},
+		})
+		if err != nil {
+			t.Errorf("Expected no error for bold style, got: %v", err)
+		}
+	})
+
+	t.Run("valid all styles", func(t *testing.T) {
+		err := v.validateTextStylingRanges([]TextStylingInfo{
+			{Offset: 0, Length: 5, StylingInfo: []string{"bold", "italic"}},
+			{Offset: 10, Length: 5, StylingInfo: []string{"highlight"}},
+			{Offset: 20, Length: 5, StylingInfo: []string{"underline", "strikethrough"}},
+		})
+		if err != nil {
+			t.Errorf("Expected no error for valid styles, got: %v", err)
+		}
+	})
+
+	t.Run("invalid style value returns error", func(t *testing.T) {
+		err := v.validateTextStylingRanges([]TextStylingInfo{
+			{Offset: 0, Length: 5, StylingInfo: []string{"bold", "superscript"}},
+		})
+		if err == nil {
+			t.Fatal("Expected error for invalid style value 'superscript'")
+		}
+		if !IsValidationError(err) {
+			t.Errorf("Expected ValidationError, got %T", err)
+		}
+	})
+
+	t.Run("empty style slice is valid", func(t *testing.T) {
+		err := v.validateTextStylingRanges([]TextStylingInfo{
+			{Offset: 0, Length: 5, StylingInfo: []string{}},
+		})
+		if err != nil {
+			t.Errorf("Expected no error for empty style slice, got: %v", err)
+		}
+	})
+
+	t.Run("unknown style returns error", func(t *testing.T) {
+		err := v.validateTextStylingRanges([]TextStylingInfo{
+			{Offset: 0, Length: 5, StylingInfo: []string{"BOLD"}}, // uppercase is invalid
+		})
+		if err == nil {
+			t.Fatal("Expected error for uppercase style value")
+		}
+	})
+}
+
 func TestConfigValidatorValidateRequiredFields(t *testing.T) {
 	cv := NewConfigValidator()
 
