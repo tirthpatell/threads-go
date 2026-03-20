@@ -146,8 +146,9 @@ func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) err
 }
 
 // ValidatePollAttachment validates poll attachment options.
+// The API requires MinPollOptions (2) to MaxPollOptions (4) options.
 // Options A and B are required; options C and D are optional.
-// Each provided option must be 1-25 characters.
+// Each provided option must be 1-MaxPollOptionLength (25) characters.
 func (v *Validator) ValidatePollAttachment(poll *PollAttachment) error {
 	if poll == nil {
 		return nil // Poll attachment is optional

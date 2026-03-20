@@ -18,9 +18,14 @@ func NewContainerBuilder() *ContainerBuilder {
 	}
 }
 
-// SetMediaType sets the media type
+// SetMediaType sets the media type.
+// If a non-TEXT type is set, any previously set is_ghost_post flag is cleared
+// since ghost posts are only supported for TEXT.
 func (b *ContainerBuilder) SetMediaType(mediaType string) *ContainerBuilder {
 	b.params.Set("media_type", mediaType)
+	if mediaType != "" && mediaType != MediaTypeText {
+		b.params.Del("is_ghost_post")
+	}
 	return b
 }
 

@@ -46,14 +46,27 @@ func TestContainerBuilder_SetIsGhostPost_CarouselMediaType_Ignored(t *testing.T)
 	}
 }
 
-func TestContainerBuilder_SetIsGhostPost_NoMediaType_Allowed(t *testing.T) {
-	// When media_type is not yet set, ghost post flag should be allowed
+func TestContainerBuilder_SetIsGhostPost_NoMediaType_ThenText(t *testing.T) {
+	// Ghost post set before media type; TEXT should preserve it
 	b := NewContainerBuilder().
-		SetIsGhostPost(true)
+		SetIsGhostPost(true).
+		SetMediaType(MediaTypeText)
 
 	params := b.Build()
 	if params.Get("is_ghost_post") != "true" {
-		t.Error("expected is_ghost_post to be set when no media_type is specified")
+		t.Error("expected is_ghost_post to be preserved when media_type is set to TEXT after")
+	}
+}
+
+func TestContainerBuilder_SetIsGhostPost_NoMediaType_ThenImage(t *testing.T) {
+	// Ghost post set before media type; IMAGE should clear it
+	b := NewContainerBuilder().
+		SetIsGhostPost(true).
+		SetMediaType(MediaTypeImage)
+
+	params := b.Build()
+	if params.Get("is_ghost_post") != "" {
+		t.Error("expected is_ghost_post to be cleared when media_type is set to IMAGE after")
 	}
 }
 

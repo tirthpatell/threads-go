@@ -309,6 +309,10 @@ func (c *Client) GetUserGhostPosts(ctx context.Context, userID UserID, opts *Pag
 		return nil, NewValidationError(404, "User not found", fmt.Sprintf("User with ID %s does not exist or is not accessible", userID.String()), "user_id")
 	}
 
+	if resp.StatusCode == 403 {
+		return nil, NewAuthenticationError(403, "Access denied", fmt.Sprintf("Cannot access ghost posts for user %s - insufficient permissions", userID.String()))
+	}
+
 	if resp.StatusCode != 200 {
 		return nil, c.handleAPIError(resp)
 	}
