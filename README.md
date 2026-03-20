@@ -111,7 +111,7 @@ post, err := client.GetPost(ctx, threads.PostID("123"))
 posts, err := client.GetUserPosts(ctx, threads.UserID("456"), &threads.PaginationOptions{Limit: 25})
 
 // Delete post
-err = client.DeletePost(ctx, threads.PostID("123"))
+deletedID, err := client.DeletePost(ctx, threads.PostID("123"))
 ```
 
 ### Users & Profiles

@@ -105,11 +105,11 @@ type PostReader interface {
 
 // PostDeleter handles post deletion operations
 type PostDeleter interface {
-	// DeletePost deletes a specific post
-	DeletePost(ctx context.Context, postID PostID) error
+	// DeletePost deletes a specific post and returns the deleted post ID
+	DeletePost(ctx context.Context, postID PostID) (string, error)
 
-	// DeletePostWithConfirmation deletes a post with confirmation
-	DeletePostWithConfirmation(ctx context.Context, postID PostID, confirmationCallback func(post *Post) bool) error
+	// DeletePostWithConfirmation deletes a post with confirmation and returns the deleted post ID
+	DeletePostWithConfirmation(ctx context.Context, postID PostID, confirmationCallback func(post *Post) bool) (string, error)
 }
 
 // PostValidator provides validation for post content
