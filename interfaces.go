@@ -94,7 +94,10 @@ type PostReader interface {
 	GetUserPostsWithOptions(ctx context.Context, userID UserID, opts *PostsOptions) (*PostsResponse, error)
 
 	// GetUserMentions retrieves posts where the user is mentioned
-	GetUserMentions(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error)
+	GetUserMentions(ctx context.Context, userID UserID, opts *PostsOptions) (*PostsResponse, error)
+
+	// GetUserGhostPosts retrieves ghost posts from a specific user
+	GetUserGhostPosts(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error)
 
 	// GetPublishingLimits retrieves current API quota usage
 	GetPublishingLimits(ctx context.Context) (*PublishingLimits, error)

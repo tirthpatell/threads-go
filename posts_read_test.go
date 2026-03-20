@@ -222,10 +222,36 @@ func TestGetUserMentions_WithPagination(t *testing.T) {
 
 	client := testClient(t, http.HandlerFunc(handler))
 
-	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), &PaginationOptions{
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), &PostsOptions{
 		Limit:  10,
 		Before: "cursor_before",
 		After:  "cursor_after",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUserMentions_WithSinceUntil(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		since := r.URL.Query().Get("since")
+		until := r.URL.Query().Get("until")
+		if since != "1700000000" {
+			t.Errorf("expected since=1700000000, got %s", since)
+		}
+		if until != "1700100000" {
+			t.Errorf("expected until=1700100000, got %s", until)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"data": [{"id": "1"}], "paging": {}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), &PostsOptions{
+		Since: 1700000000,
+		Until: 1700100000,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

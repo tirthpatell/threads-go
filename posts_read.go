@@ -140,7 +140,7 @@ func (c *Client) GetUserPostsWithOptions(ctx context.Context, userID UserID, opt
 }
 
 // GetUserMentions retrieves posts where the user is mentioned
-func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error) {
+func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *PostsOptions) (*PostsResponse, error) {
 	if !userID.Valid() {
 		return nil, NewValidationError(400, ErrEmptyUserID, "Cannot retrieve mentions without user ID", "user_id")
 	}
@@ -152,8 +152,15 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Pagin
 
 	// Validate pagination options
 	validator := NewValidator()
-	if err := validator.ValidatePaginationOptions(opts); err != nil {
-		return nil, err
+	if opts != nil {
+		paginationOpts := &PaginationOptions{
+			Limit:  opts.Limit,
+			Before: opts.Before,
+			After:  opts.After,
+		}
+		if err := validator.ValidatePaginationOptions(paginationOpts); err != nil {
+			return nil, err
+		}
 	}
 
 	// Build query parameters
@@ -161,7 +168,7 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Pagin
 		"fields": {PostExtendedFields},
 	}
 
-	// Add pagination options if provided
+	// Add pagination and filtering options if provided
 	if opts != nil {
 		if opts.Limit > 0 {
 			params.Set("limit", fmt.Sprintf("%d", opts.Limit))
@@ -171,6 +178,12 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Pagin
 		}
 		if opts.After != "" {
 			params.Set("after", opts.After)
+		}
+		if opts.Since > 0 {
+			params.Set("since", fmt.Sprintf("%d", opts.Since))
+		}
+		if opts.Until > 0 {
+			params.Set("until", fmt.Sprintf("%d", opts.Until))
 		}
 	}
 

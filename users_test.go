@@ -470,6 +470,50 @@ func TestGetUserFields_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestGetUserFields_RecentlySearchedKeywords(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{
+		"id": "12345",
+		"username": "testuser",
+		"recently_searched_keywords": [
+			{"query": "golang", "timestamp": 1700000001},
+			{"query": "threads api", "timestamp": 1700000002}
+		]
+	}`))
+
+	user, err := client.GetUserFields(context.Background(), ConvertToUserID("12345"), []string{"id", "recently_searched_keywords"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(user.RecentlySearchedKeywords) != 2 {
+		t.Fatalf("expected 2 recently searched keywords, got %d", len(user.RecentlySearchedKeywords))
+	}
+	if user.RecentlySearchedKeywords[0].Query != "golang" {
+		t.Errorf("expected first keyword query 'golang', got %s", user.RecentlySearchedKeywords[0].Query)
+	}
+	if user.RecentlySearchedKeywords[0].Timestamp != 1700000001 {
+		t.Errorf("expected first keyword timestamp 1700000001, got %d", user.RecentlySearchedKeywords[0].Timestamp)
+	}
+	if user.RecentlySearchedKeywords[1].Query != "threads api" {
+		t.Errorf("expected second keyword query 'threads api', got %s", user.RecentlySearchedKeywords[1].Query)
+	}
+}
+
+func TestGetUserFields_IsEligibleForGeoGating(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{
+		"id": "12345",
+		"username": "testuser",
+		"is_eligible_for_geo_gating": true
+	}`))
+
+	user, err := client.GetUserFields(context.Background(), ConvertToUserID("12345"), []string{"id", "is_eligible_for_geo_gating"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !user.IsEligibleForGeoGating {
+		t.Error("expected is_eligible_for_geo_gating to be true")
+	}
+}
+
 func TestGetPublicProfilePosts_NoAuth(t *testing.T) {
 	client := testClientNoAuth(t, jsonHandler(200, `{}`))
 	_, err := client.GetPublicProfilePosts(context.Background(), "testuser", nil)

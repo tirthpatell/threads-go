@@ -91,20 +91,27 @@ type Post struct {
 	Location                *Location       `json:"location,omitempty"`
 }
 
+// RecentSearch represents a recently searched keyword with its timestamp
+type RecentSearch struct {
+	Query     string `json:"query"`
+	Timestamp int64  `json:"timestamp"`
+}
+
 // User represents a Threads user profile with app-scoped data.
 // The user ID and other fields are specific to your app and cannot be used
 // with other apps. Contains basic profile information accessible via API.
 type User struct {
-	ID                     string `json:"id"`
-	Username               string `json:"username"`
-	Name                   string `json:"name,omitempty"`                       // Available with appropriate fields
-	ProfilePicURL          string `json:"profile_pic_url,omitempty"`            // Maps to threads_profile_picture_url
-	Biography              string `json:"biography,omitempty"`                  // Maps to threads_biography
-	Website                string `json:"website,omitempty"`                    // Not available in basic profile
-	FollowersCount         int    `json:"followers_count"`                      // Not available in basic profile
-	MediaCount             int    `json:"media_count"`                          // Not available in basic profile
-	IsVerified             bool   `json:"is_verified,omitempty"`                // Available with is_verified field
-	IsEligibleForGeoGating bool   `json:"is_eligible_for_geo_gating,omitempty"` // Whether geo-gating is available for this user
+	ID                       string         `json:"id"`
+	Username                 string         `json:"username"`
+	Name                     string         `json:"name,omitempty"`                       // Available with appropriate fields
+	ProfilePicURL            string         `json:"profile_pic_url,omitempty"`            // Maps to threads_profile_picture_url
+	Biography                string         `json:"biography,omitempty"`                  // Maps to threads_biography
+	Website                  string         `json:"website,omitempty"`                    // Not available in basic profile
+	FollowersCount           int            `json:"followers_count"`                      // Not available in basic profile
+	MediaCount               int            `json:"media_count"`                          // Not available in basic profile
+	IsVerified               bool           `json:"is_verified,omitempty"`                // Available with is_verified field
+	IsEligibleForGeoGating   bool           `json:"is_eligible_for_geo_gating,omitempty"` // Whether geo-gating is available for this user
+	RecentlySearchedKeywords []RecentSearch `json:"recently_searched_keywords,omitempty"` // Recently searched keywords with timestamps
 }
 
 // PublicUser represents a public Threads user profile retrieved via the

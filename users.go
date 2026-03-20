@@ -104,6 +104,7 @@ func (c *Client) GetUserFields(ctx context.Context, userID UserID, fields []stri
 		"threads_biography":           true,
 		"is_verified":                 true,
 		"recently_searched_keywords":  true,
+		"is_eligible_for_geo_gating":  true,
 	}
 
 	var validFields []string
@@ -149,13 +150,14 @@ func (c *Client) GetUserFields(ctx context.Context, userID UserID, fields []stri
 
 	// Parse response with all possible fields
 	var apiUser struct {
-		ID                       string   `json:"id"`
-		Username                 string   `json:"username"`
-		Name                     string   `json:"name,omitempty"`
-		ThreadsProfilePictureURL string   `json:"threads_profile_picture_url,omitempty"`
-		ThreadsBiography         string   `json:"threads_biography,omitempty"`
-		IsVerified               bool     `json:"is_verified,omitempty"`
-		RecentlySearchedKeywords []string `json:"recently_searched_keywords,omitempty"`
+		ID                       string         `json:"id"`
+		Username                 string         `json:"username"`
+		Name                     string         `json:"name,omitempty"`
+		ThreadsProfilePictureURL string         `json:"threads_profile_picture_url,omitempty"`
+		ThreadsBiography         string         `json:"threads_biography,omitempty"`
+		IsVerified               bool           `json:"is_verified,omitempty"`
+		RecentlySearchedKeywords []RecentSearch `json:"recently_searched_keywords,omitempty"`
+		IsEligibleForGeoGating   bool           `json:"is_eligible_for_geo_gating,omitempty"`
 	}
 
 	if err := safeJSONUnmarshal(resp.Body, &apiUser, "user response", resp.RequestID); err != nil {
@@ -164,12 +166,14 @@ func (c *Client) GetUserFields(ctx context.Context, userID UserID, fields []stri
 
 	// Convert to our User struct format
 	user := &User{
-		ID:            apiUser.ID,
-		Username:      apiUser.Username,
-		Name:          apiUser.Name,
-		ProfilePicURL: apiUser.ThreadsProfilePictureURL,
-		Biography:     apiUser.ThreadsBiography,
-		IsVerified:    apiUser.IsVerified,
+		ID:                       apiUser.ID,
+		Username:                 apiUser.Username,
+		Name:                     apiUser.Name,
+		ProfilePicURL:            apiUser.ThreadsProfilePictureURL,
+		Biography:                apiUser.ThreadsBiography,
+		IsVerified:               apiUser.IsVerified,
+		RecentlySearchedKeywords: apiUser.RecentlySearchedKeywords,
+		IsEligibleForGeoGating:   apiUser.IsEligibleForGeoGating,
 	}
 
 	return user, nil
