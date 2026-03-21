@@ -154,17 +154,17 @@ func (v *Validator) ValidatePollAttachment(poll *PollAttachment) error {
 		return nil // Poll attachment is optional
 	}
 
-	// Options A and B are required
+	// Options A and B are required (MinPollOptions = 2)
 	if poll.OptionA == "" {
 		return NewValidationError(400,
 			"Poll option A required",
-			"Poll attachment must have option_a",
+			fmt.Sprintf("Poll attachment must have at least %d options (option_a is required)", MinPollOptions),
 			"poll_attachment.option_a")
 	}
 	if poll.OptionB == "" {
 		return NewValidationError(400,
 			"Poll option B required",
-			"Poll attachment must have option_b",
+			fmt.Sprintf("Poll attachment must have at least %d options (option_b is required)", MinPollOptions),
 			"poll_attachment.option_b")
 	}
 
@@ -402,6 +402,10 @@ func (v *Validator) ValidatePostsOptions(opts *PostsOptions) error {
 	if opts.Until > 0 && opts.Until < MinSearchTimestamp {
 		return NewValidationError(400, "Invalid until timestamp",
 			fmt.Sprintf("until timestamp must be >= %d", MinSearchTimestamp), "until")
+	}
+	if opts.Since > 0 && opts.Until > 0 && opts.Since > opts.Until {
+		return NewValidationError(400, "Invalid time range",
+			"since timestamp must be less than or equal to until timestamp", "since")
 	}
 
 	return nil
