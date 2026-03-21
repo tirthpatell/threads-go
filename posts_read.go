@@ -72,17 +72,10 @@ func (c *Client) GetUserPostsWithOptions(ctx context.Context, userID UserID, opt
 		return nil, err
 	}
 
-	// Validate pagination options
+	// Validate options
 	validator := NewValidator()
-	if opts != nil {
-		paginationOpts := &PaginationOptions{
-			Limit:  opts.Limit,
-			Before: opts.Before,
-			After:  opts.After,
-		}
-		if err := validator.ValidatePaginationOptions(paginationOpts); err != nil {
-			return nil, err
-		}
+	if err := validator.ValidatePostsOptions(opts); err != nil {
+		return nil, err
 	}
 
 	// Build query parameters with enhanced fields from API documentation
@@ -140,7 +133,7 @@ func (c *Client) GetUserPostsWithOptions(ctx context.Context, userID UserID, opt
 }
 
 // GetUserMentions retrieves posts where the user is mentioned
-func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error) {
+func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *PostsOptions) (*PostsResponse, error) {
 	if !userID.Valid() {
 		return nil, NewValidationError(400, ErrEmptyUserID, "Cannot retrieve mentions without user ID", "user_id")
 	}
@@ -150,9 +143,9 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Pagin
 		return nil, err
 	}
 
-	// Validate pagination options
+	// Validate options
 	validator := NewValidator()
-	if err := validator.ValidatePaginationOptions(opts); err != nil {
+	if err := validator.ValidatePostsOptions(opts); err != nil {
 		return nil, err
 	}
 
@@ -161,7 +154,7 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Pagin
 		"fields": {PostExtendedFields},
 	}
 
-	// Add pagination options if provided
+	// Add pagination and filtering options if provided
 	if opts != nil {
 		if opts.Limit > 0 {
 			params.Set("limit", fmt.Sprintf("%d", opts.Limit))
@@ -171,6 +164,12 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Pagin
 		}
 		if opts.After != "" {
 			params.Set("after", opts.After)
+		}
+		if opts.Since > 0 {
+			params.Set("since", fmt.Sprintf("%d", opts.Since))
+		}
+		if opts.Until > 0 {
+			params.Set("until", fmt.Sprintf("%d", opts.Until))
 		}
 	}
 
@@ -294,6 +293,10 @@ func (c *Client) GetUserGhostPosts(ctx context.Context, userID UserID, opts *Pag
 	// Handle specific error cases
 	if resp.StatusCode == 404 {
 		return nil, NewValidationError(404, "User not found", fmt.Sprintf("User with ID %s does not exist or is not accessible", userID.String()), "user_id")
+	}
+
+	if resp.StatusCode == 403 {
+		return nil, NewAuthenticationError(403, "Access denied", fmt.Sprintf("Cannot access ghost posts for user %s - insufficient permissions", userID.String()))
 	}
 
 	if resp.StatusCode != 200 {

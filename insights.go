@@ -13,7 +13,8 @@ import (
 type PostInsightMetric string
 
 const (
-	// PostInsightViews represents the number of times a post was viewed
+	// PostInsightViews represents the number of times a post was viewed.
+	// Note: This metric is noted as "in development" in the API documentation.
 	PostInsightViews PostInsightMetric = "views"
 	// PostInsightLikes represents the number of likes a post received
 	PostInsightLikes PostInsightMetric = "likes"
@@ -23,7 +24,8 @@ const (
 	PostInsightReposts PostInsightMetric = "reposts"
 	// PostInsightQuotes represents the number of times a post was quoted
 	PostInsightQuotes PostInsightMetric = "quotes"
-	// PostInsightShares represents the number of times a post was shared
+	// PostInsightShares represents the number of times a post was shared.
+	// Note: This metric is noted as "in development" in the API documentation.
 	PostInsightShares PostInsightMetric = "shares"
 )
 
@@ -31,7 +33,8 @@ const (
 type AccountInsightMetric string
 
 const (
-	// AccountInsightViews represents the total views across all account posts
+	// AccountInsightViews represents the total views across all account posts.
+	// Note: This metric is noted as "in development" in the API documentation.
 	AccountInsightViews AccountInsightMetric = "views"
 	// AccountInsightLikes represents the total likes across all account posts
 	AccountInsightLikes AccountInsightMetric = "likes"

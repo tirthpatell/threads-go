@@ -17,21 +17,24 @@ func TestDeletePost_Success(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		_, _ = w.Write([]byte(`{"success":true}`))
+		_, _ = w.Write([]byte(`{"success":true,"deleted_id":"post_1"}`))
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	deletedID, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if deletedID != "post_1" {
+		t.Errorf("expected deleted_id %q, got %q", "post_1", deletedID)
 	}
 }
 
 func TestDeletePost_InvalidID(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
-	err := client.DeletePost(context.Background(), PostID(""))
+	_, err := client.DeletePost(context.Background(), PostID(""))
 	if err == nil {
 		t.Fatal("expected error for empty post ID")
 	}
@@ -41,7 +44,7 @@ func TestDeletePost_NotFound(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
 	client.config.RetryConfig.MaxRetries = 0
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("nonexistent"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("nonexistent"))
 	if err == nil {
 		t.Fatal("expected error for 404")
 	}
@@ -66,7 +69,7 @@ func TestDeletePostWithConfirmation_Success(t *testing.T) {
 	client := testClient(t, http.HandlerFunc(handler))
 
 	confirmed := false
-	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
+	_, err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
 		confirmed = true
 		return true
 	})
@@ -87,7 +90,7 @@ func TestDeletePostWithConfirmation_Cancelled(t *testing.T) {
 
 	client := testClient(t, http.HandlerFunc(handler))
 
-	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
+	_, err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
 		return false // user cancels
 	})
 	if err == nil {
@@ -101,7 +104,7 @@ func TestDeletePostWithConfirmation_Cancelled(t *testing.T) {
 func TestDeletePostWithConfirmation_InvalidID(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
-	err := client.DeletePostWithConfirmation(context.Background(), PostID(""), func(post *Post) bool {
+	_, err := client.DeletePostWithConfirmation(context.Background(), PostID(""), func(post *Post) bool {
 		return true
 	})
 	if err == nil {
@@ -115,7 +118,7 @@ func TestDeletePostWithConfirmation_InvalidID(t *testing.T) {
 func TestDeletePostWithConfirmation_NilCallback(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 
-	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), nil)
+	_, err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), nil)
 	if err == nil {
 		t.Fatal("expected error for nil callback")
 	}
@@ -128,7 +131,7 @@ func TestDeletePostWithConfirmation_GetPostError(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
 	client.config.RetryConfig.MaxRetries = 0
 
-	err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("nonexistent"), func(post *Post) bool {
+	_, err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("nonexistent"), func(post *Post) bool {
 		return true
 	})
 	if err == nil {
@@ -152,7 +155,7 @@ func TestDeletePost_Forbidden(t *testing.T) {
 	client := testClient(t, http.HandlerFunc(handler))
 	client.config.RetryConfig.MaxRetries = 0
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
 		t.Fatal("expected error for 403")
 	}
@@ -165,7 +168,7 @@ func TestDeletePost_NotAuthenticated(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{}`))
 	_ = client.ClearToken()
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
 		t.Fatal("expected error when not authenticated")
 	}
@@ -190,7 +193,7 @@ func TestDeletePost_ServerError(t *testing.T) {
 	client := testClient(t, http.HandlerFunc(handler))
 	client.config.RetryConfig.MaxRetries = 0
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
 		t.Fatal("expected error for 500")
 	}
@@ -212,7 +215,7 @@ func TestDeletePost_Delete404(t *testing.T) {
 	client := testClient(t, http.HandlerFunc(handler))
 	client.config.RetryConfig.MaxRetries = 0
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
 		t.Fatal("expected error for 404 DELETE")
 	}
@@ -238,7 +241,7 @@ func TestDeletePost_WithLogger(t *testing.T) {
 	client := testClient(t, http.HandlerFunc(handler))
 	client.config.Logger = &noopLogger{}
 
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -260,7 +263,7 @@ func TestDeletePost_MalformedDeleteResponse(t *testing.T) {
 	client := testClient(t, http.HandlerFunc(handler))
 
 	// Should succeed even with malformed response (200 status assumed success)
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -283,7 +286,7 @@ func TestDeletePost_MalformedDeleteResponseWithLogger(t *testing.T) {
 	client.config.Logger = &noopLogger{}
 
 	// Should succeed even with malformed response and logger
-	err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
+	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

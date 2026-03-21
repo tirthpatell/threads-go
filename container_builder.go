@@ -18,9 +18,14 @@ func NewContainerBuilder() *ContainerBuilder {
 	}
 }
 
-// SetMediaType sets the media type
+// SetMediaType sets the media type.
+// If a non-TEXT type is set, any previously set is_ghost_post flag is cleared
+// since ghost posts are only supported for TEXT.
 func (b *ContainerBuilder) SetMediaType(mediaType string) *ContainerBuilder {
 	b.params.Set("media_type", mediaType)
+	if mediaType != "" && mediaType != MediaTypeText {
+		b.params.Del("is_ghost_post")
+	}
 	return b
 }
 
@@ -211,10 +216,21 @@ func (b *ContainerBuilder) SetGIFAttachment(gifAttachment *GIFAttachment) *Conta
 	return b
 }
 
-// SetIsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed)
+// SetIsGhostPost marks the post as a ghost post (text-only, expires in 24h, no replies allowed).
+// Ghost posts are only supported for TEXT media type. If the builder's media_type is already set
+// to a non-TEXT value this call is silently ignored; if a non-TEXT type is set after this call,
+// SetMediaType will automatically clear the flag.
 func (b *ContainerBuilder) SetIsGhostPost(isGhostPost bool) *ContainerBuilder {
 	if isGhostPost {
+		// Ghost posts are only allowed for TEXT media type
+		mediaType := b.params.Get("media_type")
+		if mediaType != "" && mediaType != MediaTypeText {
+			// Silently ignore - ghost post flag is not applicable to non-text posts
+			return b
+		}
 		b.params.Set("is_ghost_post", "true")
+	} else {
+		b.params.Del("is_ghost_post")
 	}
 	return b
 }

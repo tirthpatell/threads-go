@@ -45,36 +45,39 @@ func (t *Time) MarshalJSON() ([]byte, error) {
 // This is the primary data structure returned by most post-related API operations.
 // Posts can contain text, images, videos, carousels, or be quote/reply posts.
 type Post struct {
-	ID                           string        `json:"id"`
-	Text                         string        `json:"text,omitempty"`
-	MediaType                    string        `json:"media_type,omitempty"`
-	MediaURL                     string        `json:"media_url,omitempty"`
-	Permalink                    string        `json:"permalink"`
-	Timestamp                    Time          `json:"timestamp"`
-	Username                     string        `json:"username"`
-	Owner                        *PostOwner    `json:"owner,omitempty"`
-	IsReply                      bool          `json:"is_reply"`
-	ReplyTo                      string        `json:"reply_to,omitempty"`
-	MediaProductType             string        `json:"media_product_type"`
-	Shortcode                    string        `json:"shortcode,omitempty"`
-	ThumbnailURL                 string        `json:"thumbnail_url,omitempty"`
-	AltText                      string        `json:"alt_text,omitempty"`
-	Children                     *ChildrenData `json:"children,omitempty"`
-	IsQuotePost                  bool          `json:"is_quote_post,omitempty"`
-	LinkAttachmentURL            string        `json:"link_attachment_url,omitempty"`
-	HasReplies                   bool          `json:"has_replies,omitempty"`
-	ReplyAudience                string        `json:"reply_audience,omitempty"`
-	QuotedPost                   *Post         `json:"quoted_post,omitempty"`
-	RepostedPost                 *Post         `json:"reposted_post,omitempty"`
-	GifURL                       string        `json:"gif_url,omitempty"`
-	PollAttachment               *PollResult   `json:"poll_attachment,omitempty"`
-	RootPost                     *Post         `json:"root_post,omitempty"`
-	RepliedTo                    *Post         `json:"replied_to,omitempty"`
-	IsReplyOwnedByMe             bool          `json:"is_reply_owned_by_me,omitempty"`
-	HideStatus                   string        `json:"hide_status,omitempty"`
-	TopicTag                     string        `json:"topic_tag,omitempty"`
-	GhostPostStatus              string        `json:"ghost_post_status,omitempty"`
-	GhostPostExpirationTimestamp Time          `json:"ghost_post_expiration_timestamp,omitempty"`
+	ID                string        `json:"id"`
+	Text              string        `json:"text,omitempty"`
+	MediaType         string        `json:"media_type,omitempty"`
+	MediaURL          string        `json:"media_url,omitempty"`
+	Permalink         string        `json:"permalink"`
+	Timestamp         Time          `json:"timestamp"`
+	Username          string        `json:"username"`
+	Owner             *PostOwner    `json:"owner,omitempty"`
+	IsReply           bool          `json:"is_reply"`
+	ReplyTo           string        `json:"reply_to,omitempty"`
+	MediaProductType  string        `json:"media_product_type"`
+	Shortcode         string        `json:"shortcode,omitempty"`
+	ThumbnailURL      string        `json:"thumbnail_url,omitempty"`
+	AltText           string        `json:"alt_text,omitempty"`
+	Children          *ChildrenData `json:"children,omitempty"`
+	IsQuotePost       bool          `json:"is_quote_post,omitempty"`
+	LinkAttachmentURL string        `json:"link_attachment_url,omitempty"`
+	HasReplies        bool          `json:"has_replies,omitempty"`
+	ReplyAudience     ReplyAudience `json:"reply_audience,omitempty"`
+	QuotedPost        *Post         `json:"quoted_post,omitempty"`
+	RepostedPost      *Post         `json:"reposted_post,omitempty"`
+	GifURL            string        `json:"gif_url,omitempty"`
+	PollAttachment    *PollResult   `json:"poll_attachment,omitempty"`
+	RootPost          *Post         `json:"root_post,omitempty"`
+	RepliedTo         *Post         `json:"replied_to,omitempty"`
+	IsReplyOwnedByMe  bool          `json:"is_reply_owned_by_me,omitempty"`
+	HideStatus        HideStatus    `json:"hide_status,omitempty"`
+	TopicTag          string        `json:"topic_tag,omitempty"`
+	GhostPostStatus   string        `json:"ghost_post_status,omitempty"`
+	// GhostPostExpirationTimestamp is only present for ghost posts (ghost_post_status != "").
+	// omitempty is safe here: the zero Time value is omitted on marshal, and absent fields
+	// are left at zero on unmarshal.
+	GhostPostExpirationTimestamp Time `json:"ghost_post_expiration_timestamp,omitempty"`
 	// IsVerified indicates if the post author's profile is verified on Threads.
 	// Available for replies and mentions. For conversations, only available on direct replies.
 	IsVerified bool `json:"is_verified,omitempty"`
@@ -82,22 +85,36 @@ type Post struct {
 	// Available for replies and mentions. For conversations, only available on direct replies.
 	ProfilePictureURL string `json:"profile_picture_url,omitempty"`
 	// ReplyApprovalStatus is the approval status of a pending reply ("pending" or "ignored")
-	ReplyApprovalStatus string `json:"reply_approval_status,omitempty"`
+	ReplyApprovalStatus     string                `json:"reply_approval_status,omitempty"`
+	IsSpoilerMedia          bool                  `json:"is_spoiler_media,omitempty"`
+	TextEntities            *TextEntitiesResponse `json:"text_entities,omitempty"`
+	TextAttachment          *TextAttachment       `json:"text_attachment,omitempty"`
+	AllowlistedCountryCodes []string              `json:"allowlisted_country_codes,omitempty"`
+	LocationID              string                `json:"location_id,omitempty"`
+	Location                *Location             `json:"location,omitempty"`
+}
+
+// RecentSearch represents a recently searched keyword with its timestamp
+type RecentSearch struct {
+	Query     string `json:"query"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 // User represents a Threads user profile with app-scoped data.
 // The user ID and other fields are specific to your app and cannot be used
 // with other apps. Contains basic profile information accessible via API.
 type User struct {
-	ID             string `json:"id"`
-	Username       string `json:"username"`
-	Name           string `json:"name,omitempty"`            // Available with appropriate fields
-	ProfilePicURL  string `json:"profile_pic_url,omitempty"` // Maps to threads_profile_picture_url
-	Biography      string `json:"biography,omitempty"`       // Maps to threads_biography
-	Website        string `json:"website,omitempty"`         // Not available in basic profile
-	FollowersCount int    `json:"followers_count"`           // Not available in basic profile
-	MediaCount     int    `json:"media_count"`               // Not available in basic profile
-	IsVerified     bool   `json:"is_verified,omitempty"`     // Available with is_verified field
+	ID                       string         `json:"id"`
+	Username                 string         `json:"username"`
+	Name                     string         `json:"name,omitempty"`                       // Available with appropriate fields
+	ProfilePicURL            string         `json:"profile_pic_url,omitempty"`            // Maps to threads_profile_picture_url
+	Biography                string         `json:"biography,omitempty"`                  // Maps to threads_biography
+	Website                  string         `json:"website,omitempty"`                    // Not available in basic profile
+	FollowersCount           int            `json:"followers_count"`                      // Not available in basic profile
+	MediaCount               int            `json:"media_count"`                          // Not available in basic profile
+	IsVerified               bool           `json:"is_verified,omitempty"`                // Available with is_verified field
+	IsEligibleForGeoGating   bool           `json:"is_eligible_for_geo_gating,omitempty"` // Whether geo-gating is available for this user
+	RecentlySearchedKeywords []RecentSearch `json:"recently_searched_keywords,omitempty"` // Recently searched keywords with timestamps
 }
 
 // PublicUser represents a public Threads user profile retrieved via the
@@ -242,6 +259,31 @@ const (
 	ReplyControlFollowersOnly ReplyControl = "followers_only"
 )
 
+// ReplyAudience represents the audience restriction returned by the API when reading posts.
+// This is the read-side counterpart to ReplyControl (which is used for creation).
+// The API returns reply_audience in UPPERCASE values.
+type ReplyAudience string
+
+const (
+	ReplyAudienceEveryone             ReplyAudience = "EVERYONE"
+	ReplyAudienceAccountsYouFollow    ReplyAudience = "ACCOUNTS_YOU_FOLLOW"
+	ReplyAudienceMentionedOnly        ReplyAudience = "MENTIONED_ONLY"
+	ReplyAudienceParentPostAuthorOnly ReplyAudience = "PARENT_POST_AUTHOR_ONLY"
+	ReplyAudienceFollowersOnly        ReplyAudience = "FOLLOWERS_ONLY"
+)
+
+// HideStatus represents the visibility status of a reply
+type HideStatus string
+
+const (
+	HideStatusNotHushed  HideStatus = "NOT_HUSHED"
+	HideStatusUnhushed   HideStatus = "UNHUSHED"
+	HideStatusHidden     HideStatus = "HIDDEN"
+	HideStatusCovered    HideStatus = "COVERED"
+	HideStatusBlocked    HideStatus = "BLOCKED"
+	HideStatusRestricted HideStatus = "RESTRICTED"
+)
+
 // PostsResponse represents a paginated response containing multiple posts.
 // Use the Paging field to navigate through large result sets.
 // This is returned by endpoints like GetUserPosts, SearchPosts, etc.
@@ -286,7 +328,8 @@ type Value struct {
 
 // TotalValue represents an aggregated metric value
 type TotalValue struct {
-	Value int `json:"value"`
+	Value   int    `json:"value"`
+	LinkURL string `json:"link_url,omitempty"` // URL for click metrics
 }
 
 // Paging represents pagination information for navigating through result sets.
@@ -396,11 +439,24 @@ type PublishingLimits struct {
 	DeleteConfig             QuotaConfig `json:"delete_config"`
 	LocationSearchQuotaUsage int         `json:"location_search_quota_usage"`
 	LocationSearchConfig     QuotaConfig `json:"location_search_config"`
+	SearchQuotaUsage         int         `json:"search_quota_usage"`
+	SearchConfig             QuotaConfig `json:"search_config"`
 }
 
 // QuotaConfig represents quota configuration for a specific operation type.
 // QuotaTotal is the maximum allowed operations, QuotaDuration is the time window
 // in seconds during which the quota applies.
+//
+// Rate limit defaults per the API documentation:
+//   - Posts: 250 per 24 hours
+//   - Replies: 1000 per 24 hours
+//   - Deletes: 100 per 24 hours
+//   - Search: 2200 per 24 hours
+//   - Location search: 500 per 24 hours
+//
+// Additionally, API calls are subject to a rate limit calculated as
+// 4800 × Number of Impressions (minimum 10 impressions), with separate
+// CPU-time based limits.
 type QuotaConfig struct {
 	QuotaTotal    int `json:"quota_total"`
 	QuotaDuration int `json:"quota_duration"`
@@ -490,6 +546,12 @@ type TextEntity struct {
 	EntityType string `json:"entity_type"` // "SPOILER" or "spoiler"
 	Offset     int    `json:"offset"`      // Starting position of the spoiler (0-indexed)
 	Length     int    `json:"length"`      // Length of the spoiler text from offset
+}
+
+// TextEntitiesResponse wraps text entities as returned by the API.
+// The API returns text_entities as {"data": [...]} rather than a flat array.
+type TextEntitiesResponse struct {
+	Data []TextEntity `json:"data"`
 }
 
 // TextAttachment represents a text attachment with optional styling

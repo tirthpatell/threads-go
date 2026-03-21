@@ -67,6 +67,18 @@ err = client.ExchangeCodeForToken(ctx, "auth-code-from-callback")
 err = client.GetLongLivedToken(ctx) // Convert to long-lived token
 ```
 
+### App Access Tokens
+
+For APIs that require app-level auth instead of user tokens (e.g., oEmbed):
+
+```go
+// Full API call (server-side only — exposes app secret)
+tokenResp, err := client.GetAppAccessToken(ctx)
+
+// Or use the shorthand format (no API call needed)
+shorthand := client.GetAppAccessTokenShorthand() // "TH|<APP_ID>|<APP_SECRET>"
+```
+
 ### Environment Variables
 
 ```bash
@@ -111,7 +123,7 @@ post, err := client.GetPost(ctx, threads.PostID("123"))
 posts, err := client.GetUserPosts(ctx, threads.UserID("456"), &threads.PaginationOptions{Limit: 25})
 
 // Delete post
-err = client.DeletePost(ctx, threads.PostID("123"))
+deletedID, err := client.DeletePost(ctx, threads.PostID("123"))
 ```
 
 ### Users & Profiles

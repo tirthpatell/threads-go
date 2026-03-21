@@ -237,7 +237,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 
 		// Clean up - delete the test post using public API
 		time.Sleep(1 * time.Second) // Wait a bit before deletion
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
 		} else {
@@ -274,7 +274,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 
 		// Clean up - delete the test post
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
 		} else {
@@ -313,7 +313,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 
 		// Clean up - delete the test post
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete video post %s: %v", post.ID, err)
 		} else {
@@ -367,7 +367,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 
 		// Clean up - delete the test post
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete carousel post %s: %v", post.ID, err)
 		} else {
@@ -491,7 +491,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete spoiler post %s: %v", post.ID, err)
 		} else {
@@ -527,7 +527,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete multi-spoiler post %s: %v", post.ID, err)
 		}
@@ -556,7 +556,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete image spoiler post %s: %v", post.ID, err)
 		}
@@ -591,7 +591,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete combined spoiler post %s: %v", post.ID, err)
 		}
@@ -630,7 +630,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete text attachment post %s: %v", post.ID, err)
 		}
@@ -656,7 +656,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete text attachment link post %s: %v", post.ID, err)
 		}
@@ -699,7 +699,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete carousel spoiler post %s: %v", post.ID, err)
 		}
@@ -977,7 +977,7 @@ func TestIntegration_GIFPosts(t *testing.T) {
 
 		// Clean up - delete the test post
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete GIF post %s: %v", post.ID, err)
 		} else {
@@ -1005,7 +1005,7 @@ func TestIntegration_GIFPosts(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete GIF post %s: %v", post.ID, err)
 		}
@@ -1116,7 +1116,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
 		} else {
@@ -1145,7 +1145,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
 		}
@@ -1177,7 +1177,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
 		}
@@ -1232,7 +1232,7 @@ func TestIntegration_ReplyApprovalsValidation(t *testing.T) {
 
 		// Clean up
 		time.Sleep(1 * time.Second)
-		err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
+		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
 		if err != nil {
 			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
 		}

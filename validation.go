@@ -106,9 +106,28 @@ func (v *Validator) ValidateTextAttachment(textAttachment *TextAttachment) error
 	return nil
 }
 
-// validateTextStylingRanges checks that text styling ranges don't overlap
+// validateTextStylingRanges checks that text styling ranges don't overlap and that
+// each styling entry contains only valid style values.
 func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) error {
+	validStyles := map[string]bool{
+		"bold":          true,
+		"italic":        true,
+		"highlight":     true,
+		"underline":     true,
+		"strikethrough": true,
+	}
+
 	for i := 0; i < len(stylingInfo); i++ {
+		// Validate style values
+		for _, style := range stylingInfo[i].StylingInfo {
+			if !validStyles[style] {
+				return NewValidationError(400,
+					"Invalid text styling value",
+					fmt.Sprintf("Text styling range %d contains invalid style '%s'. Valid styles are: bold, italic, highlight, underline, strikethrough", i, style),
+					"text_attachment.text_with_styling_info")
+			}
+		}
+
 		for j := i + 1; j < len(stylingInfo); j++ {
 			// Check if ranges overlap
 			start1, end1 := stylingInfo[i].Offset, stylingInfo[i].Offset+stylingInfo[i].Length
@@ -122,6 +141,84 @@ func (v *Validator) validateTextStylingRanges(stylingInfo []TextStylingInfo) err
 					"text_attachment.text_with_styling_info")
 			}
 		}
+	}
+	return nil
+}
+
+// ValidatePollAttachment validates poll attachment options.
+// The API requires MinPollOptions (2) to MaxPollOptions (4) options.
+// Options A and B are required; options C and D are optional.
+// Each provided option must be 1-MaxPollOptionLength (25) characters.
+func (v *Validator) ValidatePollAttachment(poll *PollAttachment) error {
+	if poll == nil {
+		return nil // Poll attachment is optional
+	}
+
+	// Options A and B are required (MinPollOptions = 2)
+	if poll.OptionA == "" {
+		return NewValidationError(400,
+			"Poll option A required",
+			fmt.Sprintf("Poll attachment must have at least %d options (option_a is required)", MinPollOptions),
+			"poll_attachment.option_a")
+	}
+	if poll.OptionB == "" {
+		return NewValidationError(400,
+			"Poll option B required",
+			fmt.Sprintf("Poll attachment must have at least %d options (option_b is required)", MinPollOptions),
+			"poll_attachment.option_b")
+	}
+
+	// Options must be sequential: D requires C
+	if poll.OptionD != "" && poll.OptionC == "" {
+		return NewValidationError(400,
+			"Poll option C required before D",
+			"Cannot set option_d without option_c",
+			"poll_attachment.option_c")
+	}
+
+	// Validate length of each provided option
+	options := []struct {
+		value string
+		field string
+	}{
+		{poll.OptionA, "poll_attachment.option_a"},
+		{poll.OptionB, "poll_attachment.option_b"},
+		{poll.OptionC, "poll_attachment.option_c"},
+		{poll.OptionD, "poll_attachment.option_d"},
+	}
+
+	for _, opt := range options {
+		if opt.value == "" {
+			continue // optional options can be empty
+		}
+		if strings.TrimSpace(opt.value) == "" {
+			return NewValidationError(400,
+				"Poll option cannot be blank",
+				fmt.Sprintf("Poll option in %s must contain non-whitespace characters", opt.field),
+				opt.field)
+		}
+		if utf8.RuneCountInString(opt.value) > MaxPollOptionLength {
+			return NewValidationError(400,
+				"Poll option too long",
+				fmt.Sprintf("Poll option in %s must be at most %d characters", opt.field, MaxPollOptionLength),
+				opt.field)
+		}
+	}
+
+	return nil
+}
+
+// ValidateAltText validates alt text for media posts.
+// Alt text is optional but cannot exceed MaxAltTextLength characters.
+func (v *Validator) ValidateAltText(altText string) error {
+	if altText == "" {
+		return nil // Alt text is optional
+	}
+	if utf8.RuneCountInString(altText) > MaxAltTextLength {
+		return NewValidationError(400,
+			"Alt text too long",
+			fmt.Sprintf("Alt text is limited to %d characters", MaxAltTextLength),
+			"alt_text")
 	}
 	return nil
 }
@@ -279,6 +376,36 @@ func (v *Validator) ValidatePaginationOptions(opts *PaginationOptions) error {
 			"Limit too large",
 			fmt.Sprintf("Maximum limit is %d posts per request", MaxPostsPerRequest),
 			"limit")
+	}
+
+	return nil
+}
+
+// ValidatePostsOptions validates PostsOptions including pagination and timestamp fields.
+func (v *Validator) ValidatePostsOptions(opts *PostsOptions) error {
+	if opts == nil {
+		return nil
+	}
+
+	if err := v.ValidatePaginationOptions(&PaginationOptions{
+		Limit:  opts.Limit,
+		Before: opts.Before,
+		After:  opts.After,
+	}); err != nil {
+		return err
+	}
+
+	if opts.Since > 0 && opts.Since < MinSearchTimestamp {
+		return NewValidationError(400, "Invalid since timestamp",
+			fmt.Sprintf("since timestamp must be >= %d", MinSearchTimestamp), "since")
+	}
+	if opts.Until > 0 && opts.Until < MinSearchTimestamp {
+		return NewValidationError(400, "Invalid until timestamp",
+			fmt.Sprintf("until timestamp must be >= %d", MinSearchTimestamp), "until")
+	}
+	if opts.Since > 0 && opts.Until > 0 && opts.Since > opts.Until {
+		return NewValidationError(400, "Invalid time range",
+			"since timestamp must be less than or equal to until timestamp", "since")
 	}
 
 	return nil

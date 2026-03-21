@@ -39,6 +39,12 @@ type Authenticator interface {
 
 	// GetTokenDebugInfo returns detailed token information
 	GetTokenDebugInfo() map[string]interface{}
+
+	// GetAppAccessToken generates an app access token via the client_credentials flow
+	GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse, error)
+
+	// GetAppAccessTokenShorthand returns the TH|APP_ID|APP_SECRET shorthand token
+	GetAppAccessTokenShorthand() string
 }
 
 // PostManager handles post creation, retrieval, and management
@@ -88,7 +94,10 @@ type PostReader interface {
 	GetUserPostsWithOptions(ctx context.Context, userID UserID, opts *PostsOptions) (*PostsResponse, error)
 
 	// GetUserMentions retrieves posts where the user is mentioned
-	GetUserMentions(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error)
+	GetUserMentions(ctx context.Context, userID UserID, opts *PostsOptions) (*PostsResponse, error)
+
+	// GetUserGhostPosts retrieves ghost posts from a specific user
+	GetUserGhostPosts(ctx context.Context, userID UserID, opts *PaginationOptions) (*PostsResponse, error)
 
 	// GetPublishingLimits retrieves current API quota usage
 	GetPublishingLimits(ctx context.Context) (*PublishingLimits, error)
@@ -96,11 +105,11 @@ type PostReader interface {
 
 // PostDeleter handles post deletion operations
 type PostDeleter interface {
-	// DeletePost deletes a specific post
-	DeletePost(ctx context.Context, postID PostID) error
+	// DeletePost deletes a specific post and returns the deleted post ID
+	DeletePost(ctx context.Context, postID PostID) (string, error)
 
-	// DeletePostWithConfirmation deletes a post with confirmation
-	DeletePostWithConfirmation(ctx context.Context, postID PostID, confirmationCallback func(post *Post) bool) error
+	// DeletePostWithConfirmation deletes a post with confirmation and returns the deleted post ID
+	DeletePostWithConfirmation(ctx context.Context, postID PostID, confirmationCallback func(post *Post) bool) (string, error)
 }
 
 // PostValidator provides validation for post content

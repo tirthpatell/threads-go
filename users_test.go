@@ -274,11 +274,11 @@ func TestGetPublicProfilePosts_WithOptions(t *testing.T) {
 		if q.Get("after") != "cursor_after" {
 			t.Errorf("expected after=cursor_after, got %s", q.Get("after"))
 		}
-		if q.Get("since") != "1000000" {
-			t.Errorf("expected since=1000000, got %s", q.Get("since"))
+		if q.Get("since") != "1700000000" {
+			t.Errorf("expected since=1700000000, got %s", q.Get("since"))
 		}
-		if q.Get("until") != "2000000" {
-			t.Errorf("expected until=2000000, got %s", q.Get("until"))
+		if q.Get("until") != "1700100000" {
+			t.Errorf("expected until=1700100000, got %s", q.Get("until"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -289,8 +289,8 @@ func TestGetPublicProfilePosts_WithOptions(t *testing.T) {
 		Limit:  10,
 		Before: "cursor_before",
 		After:  "cursor_after",
-		Since:  1000000,
-		Until:  2000000,
+		Since:  1700000000,
+		Until:  1700100000,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -359,11 +359,11 @@ func TestGetUserReplies_WithOptions(t *testing.T) {
 		if q.Get("after") != "a_cursor" {
 			t.Errorf("expected after=a_cursor, got %s", q.Get("after"))
 		}
-		if q.Get("since") != "100" {
-			t.Errorf("expected since=100, got %s", q.Get("since"))
+		if q.Get("since") != "1700000000" {
+			t.Errorf("expected since=1700000000, got %s", q.Get("since"))
 		}
-		if q.Get("until") != "200" {
-			t.Errorf("expected until=200, got %s", q.Get("until"))
+		if q.Get("until") != "1700100000" {
+			t.Errorf("expected until=1700100000, got %s", q.Get("until"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -374,8 +374,8 @@ func TestGetUserReplies_WithOptions(t *testing.T) {
 		Limit:  5,
 		Before: "b_cursor",
 		After:  "a_cursor",
-		Since:  100,
-		Until:  200,
+		Since:  1700000000,
+		Until:  1700100000,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -467,6 +467,50 @@ func TestGetUserFields_InvalidJSON(t *testing.T) {
 	_, err := client.GetUserFields(context.Background(), ConvertToUserID("12345"), []string{"id"})
 	if err == nil {
 		t.Fatal("expected error for invalid JSON response")
+	}
+}
+
+func TestGetUserFields_RecentlySearchedKeywords(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{
+		"id": "12345",
+		"username": "testuser",
+		"recently_searched_keywords": [
+			{"query": "golang", "timestamp": 1700000001},
+			{"query": "threads api", "timestamp": 1700000002}
+		]
+	}`))
+
+	user, err := client.GetUserFields(context.Background(), ConvertToUserID("12345"), []string{"id", "recently_searched_keywords"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(user.RecentlySearchedKeywords) != 2 {
+		t.Fatalf("expected 2 recently searched keywords, got %d", len(user.RecentlySearchedKeywords))
+	}
+	if user.RecentlySearchedKeywords[0].Query != "golang" {
+		t.Errorf("expected first keyword query 'golang', got %s", user.RecentlySearchedKeywords[0].Query)
+	}
+	if user.RecentlySearchedKeywords[0].Timestamp != 1700000001 {
+		t.Errorf("expected first keyword timestamp 1700000001, got %d", user.RecentlySearchedKeywords[0].Timestamp)
+	}
+	if user.RecentlySearchedKeywords[1].Query != "threads api" {
+		t.Errorf("expected second keyword query 'threads api', got %s", user.RecentlySearchedKeywords[1].Query)
+	}
+}
+
+func TestGetUserFields_IsEligibleForGeoGating(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{
+		"id": "12345",
+		"username": "testuser",
+		"is_eligible_for_geo_gating": true
+	}`))
+
+	user, err := client.GetUserFields(context.Background(), ConvertToUserID("12345"), []string{"id", "is_eligible_for_geo_gating"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !user.IsEligibleForGeoGating {
+		t.Error("expected is_eligible_for_geo_gating to be true")
 	}
 }
 
