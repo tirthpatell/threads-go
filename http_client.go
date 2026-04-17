@@ -11,15 +11,20 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
-// HTTPClient wraps the standard HTTP client with additional functionality
+// HTTPClient wraps the standard HTTP client with additional functionality.
+//
+// rateLimiter is stored in an atomic.Pointer so Client.DisableRateLimiting
+// and Client.EnableRateLimiting can swap it safely under a concurrent
+// request path without tearing. Readers must go through getRateLimiter().
 type HTTPClient struct {
 	client      *http.Client
 	logger      Logger
 	retryConfig *RetryConfig
-	rateLimiter *RateLimiter
+	rateLimiter atomic.Pointer[RateLimiter]
 	baseURL     string
 	userAgent   string
 }
@@ -68,14 +73,26 @@ func NewHTTPClient(config *Config, rateLimiter *RateLimiter) *HTTPClient {
 		userAgent = DefaultUserAgent
 	}
 
-	return &HTTPClient{
+	h := &HTTPClient{
 		client:      httpClient,
 		logger:      config.Logger,
 		retryConfig: config.RetryConfig,
-		rateLimiter: rateLimiter,
 		baseURL:     baseURL,
 		userAgent:   userAgent,
 	}
+	h.rateLimiter.Store(rateLimiter)
+	return h
+}
+
+// getRateLimiter returns the current rate limiter (possibly nil) atomically.
+func (h *HTTPClient) getRateLimiter() *RateLimiter {
+	return h.rateLimiter.Load()
+}
+
+// SetRateLimiter atomically swaps the HTTPClient's rate limiter. Passing nil
+// disables rate-limit enforcement on the request path.
+func (h *HTTPClient) SetRateLimiter(rl *RateLimiter) {
+	h.rateLimiter.Store(rl)
 }
 
 // Do executes an HTTP request with retry logic and error handling
@@ -85,8 +102,8 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 	}
 
 	// Only wait for rate limiter if we've been explicitly rate limited by the API
-	if h.rateLimiter != nil && h.rateLimiter.ShouldWait() {
-		if err := h.rateLimiter.Wait(opts.Context); err != nil {
+	if rl := h.getRateLimiter(); rl != nil && rl.ShouldWait() {
+		if err := rl.Wait(opts.Context); err != nil {
 			return nil, fmt.Errorf("rate limiter wait failed: %w", err)
 		}
 	}
@@ -125,8 +142,8 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 		}
 
 		// Update rate limiter with response headers
-		if h.rateLimiter != nil && resp.RateLimit != nil {
-			h.rateLimiter.UpdateFromHeaders(resp.RateLimit)
+		if rl := h.getRateLimiter(); rl != nil && resp.RateLimit != nil {
+			rl.UpdateFromHeaders(resp.RateLimit)
 		}
 
 		return resp, nil
@@ -319,12 +336,12 @@ func (h *HTTPClient) createErrorFromResponse(resp *Response) error {
 		}
 
 		// Mark the rate limiter as rate limited by the API
-		if h.rateLimiter != nil {
+		if rl := h.getRateLimiter(); rl != nil {
 			if resetTime.IsZero() {
 				// If no reset time provided, estimate based on retry after
 				resetTime = time.Now().Add(retryAfter)
 			}
-			h.rateLimiter.MarkRateLimited(resetTime)
+			rl.MarkRateLimited(resetTime)
 		}
 
 		resultErr = NewRateLimitError(errorCode, message, details, retryAfter)

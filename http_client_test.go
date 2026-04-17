@@ -323,7 +323,8 @@ func TestCreateErrorFromResponse_429_NoRateLimit(t *testing.T) {
 
 func TestCreateErrorFromResponse_429_WithRateLimiter(t *testing.T) {
 	rl := NewRateLimiter(&RateLimiterConfig{InitialLimit: 100})
-	httpClient := &HTTPClient{logger: &noopLogger{}, rateLimiter: rl}
+	httpClient := &HTTPClient{logger: &noopLogger{}}
+	httpClient.SetRateLimiter(rl)
 	resp := &Response{
 		StatusCode: 429,
 		Body:       []byte(`{"error":{"message":"rate limited"}}`),
