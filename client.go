@@ -37,10 +37,10 @@
 //		log.Fatal(err)
 //	}
 //
-//	// Get authorization URL
-//	authURL := client.GetAuthURL(config.Scopes)
-//	// Direct user to authURL, then exchange code for token
-//	err = client.ExchangeCodeForToken("auth-code-from-callback")
+//	// Get authorization URL and persist the returned state in the user's session
+//	authURL, state, err := client.GetAuthURL(config.Scopes)
+//	// Direct user to authURL. On the callback, exchange the code AND verify state:
+//	err = client.ExchangeCodeForToken(ctx, code, state, receivedState)
 //
 // For complete API documentation: https://developers.facebook.com/docs/threads
 package threads

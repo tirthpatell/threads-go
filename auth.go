@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -48,19 +49,26 @@ func generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-// GetAuthURL generates the authorization URL for OAuth 2.0 flow.
-// Users should be redirected to this URL to grant permissions to your app.
-// If scopes are not provided, defaults to threads_basic and threads_content_publish.
-// Returns the complete authorization URL including all necessary parameters.
-func (c *Client) GetAuthURL(scopes []string) string {
+// GetAuthURL generates the authorization URL for the OAuth 2.0 flow along with
+// the random state parameter embedded in it. Callers MUST persist the returned
+// state in the user's session (e.g. a signed cookie) and pass it as
+// expectedState to ExchangeCodeForToken when the provider redirects back,
+// comparing it against the state echoed on the callback. This is required by
+// RFC 6749 §10.12 and OAuth 2.0 Security BCP §4.7 to prevent login/CSRF and
+// authorization-code fixation attacks.
+//
+// If scopes are not provided, defaults to threads_basic and
+// threads_content_publish. Returns an error if the system's secure random
+// source is unavailable; in that case no URL is returned so callers cannot
+// accidentally issue a flow with a guessable state (fail closed).
+func (c *Client) GetAuthURL(scopes []string) (authURL, state string, err error) {
 	if len(scopes) == 0 {
 		scopes = []string{"threads_basic", "threads_content_publish"}
 	}
 
-	state, err := generateState()
+	state, err = generateState()
 	if err != nil {
-		// If we can't generate state, use a simple timestamp-based fallback
-		state = fmt.Sprintf("state_%d", time.Now().Unix())
+		return "", "", err
 	}
 
 	params := url.Values{
@@ -71,17 +79,33 @@ func (c *Client) GetAuthURL(scopes []string) string {
 		"state":         {state},
 	}
 
-	authURL := fmt.Sprintf("https://www.threads.net/oauth/authorize?%s", params.Encode())
-	return authURL
+	authURL = fmt.Sprintf("https://www.threads.net/oauth/authorize?%s", params.Encode())
+	return authURL, state, nil
 }
 
 // ExchangeCodeForToken exchanges an authorization code for an access token.
-// This should be called after the user authorizes your app, and you receive the code
-// from the redirect URI callback. The resulting token is automatically stored
-// in the client and token storage.
-func (c *Client) ExchangeCodeForToken(ctx context.Context, code string) error {
+// This should be called after the user authorizes your app and the provider
+// redirects back with a code and state.
+//
+// expectedState is the state value that was returned by GetAuthURL and
+// persisted in the user's session; receivedState is the state query parameter
+// echoed on the callback. Both must be non-empty and must match (compared in
+// constant time). A mismatch indicates an OAuth CSRF / authorization-code
+// fixation attack and the exchange is refused before any network call.
+//
+// The resulting token is automatically stored in the client and token storage.
+func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, receivedState string) error {
 	if code == "" {
 		return NewValidationError(400, "Authorization code is required", "Code parameter cannot be empty", "code")
+	}
+	if expectedState == "" {
+		return NewValidationError(400, "Expected state is required", "expectedState must be the value returned by GetAuthURL and persisted in the user's session", "expected_state")
+	}
+	if receivedState == "" {
+		return NewValidationError(400, "Received state is required", "receivedState must be the state query parameter echoed by the provider on the callback", "received_state")
+	}
+	if subtle.ConstantTimeCompare([]byte(expectedState), []byte(receivedState)) != 1 {
+		return NewAuthenticationError(400, "OAuth state mismatch", "The state parameter returned by the provider does not match the one issued by GetAuthURL; possible CSRF/code-fixation attempt")
 	}
 
 	data := url.Values{

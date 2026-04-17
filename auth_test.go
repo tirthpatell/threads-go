@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -41,7 +42,7 @@ func TestExchangeCodeForToken_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = client.ExchangeCodeForToken(context.Background(), "auth_code_123")
+	err = client.ExchangeCodeForToken(context.Background(), "auth_code_123", "state_abc", "state_abc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestExchangeCodeForToken_EmptyCode(t *testing.T) {
 	config.SetDefaults()
 	client, _ := NewClient(config)
 
-	err := client.ExchangeCodeForToken(context.Background(), "")
+	err := client.ExchangeCodeForToken(context.Background(), "", "state", "state")
 	if err == nil {
 		t.Fatal("expected error for empty code")
 	}
@@ -91,7 +92,7 @@ func TestExchangeCodeForToken_ServerError(t *testing.T) {
 	config.BaseURL = server.URL
 
 	client, _ := NewClient(config)
-	err := client.ExchangeCodeForToken(context.Background(), "bad_code")
+	err := client.ExchangeCodeForToken(context.Background(), "bad_code", "state", "state")
 	if err == nil {
 		t.Fatal("expected error for server error response")
 	}
@@ -116,7 +117,7 @@ func TestExchangeCodeForToken_NoExpiresIn(t *testing.T) {
 	config.BaseURL = server.URL
 
 	client, _ := NewClient(config)
-	err := client.ExchangeCodeForToken(context.Background(), "code")
+	err := client.ExchangeCodeForToken(context.Background(), "code", "state", "state")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -477,14 +478,25 @@ func TestGetAuthURL_ContainsRequiredParams(t *testing.T) {
 	config.SetDefaults()
 	client, _ := NewClient(config)
 
-	authURL := client.GetAuthURL([]string{"threads_basic"})
+	authURL, state, err := client.GetAuthURL([]string{"threads_basic"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if authURL == "" {
 		t.Fatal("expected non-empty auth URL")
+	}
+	if state == "" {
+		t.Fatal("expected non-empty state; callers cannot enforce CSRF protection without it")
 	}
 	for _, param := range []string{"client_id=my-app-id", "response_type=code", "scope=threads_basic"} {
 		if !strings.Contains(authURL, param) {
 			t.Errorf("expected auth URL to contain %q, got %s", param, authURL)
 		}
+	}
+	// The embedded state must be the state value returned to the caller,
+	// so the caller can compare it against the callback.
+	if !strings.Contains(authURL, "state="+url.QueryEscape(state)) {
+		t.Errorf("expected auth URL to embed the returned state %q, got %s", state, authURL)
 	}
 }
 
@@ -497,9 +509,41 @@ func TestGetAuthURL_DefaultScopes(t *testing.T) {
 	config.SetDefaults()
 	client, _ := NewClient(config)
 
-	authURL := client.GetAuthURL(nil)
+	authURL, _, err := client.GetAuthURL(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if !strings.Contains(authURL, "threads_basic") {
 		t.Error("expected default scope threads_basic in auth URL")
+	}
+}
+
+// TestGetAuthURL_UniqueState guards against a regression where the library
+// could return a deterministic or predictable state (e.g. a wall-clock-second
+// fallback). Two calls in quick succession must produce distinct, high-entropy
+// states, otherwise a guessable state neutralises CSRF protection.
+func TestGetAuthURL_UniqueState(t *testing.T) {
+	config := &Config{
+		ClientID:     "my-app-id",
+		ClientSecret: "secret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	client, _ := NewClient(config)
+
+	_, s1, err := client.GetAuthURL(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	_, s2, err := client.GetAuthURL(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if s1 == s2 {
+		t.Fatal("GetAuthURL must produce a fresh state on each call")
+	}
+	if len(s1) < 32 {
+		t.Errorf("state looks too short to be high-entropy: len=%d", len(s1))
 	}
 }
 
@@ -522,9 +566,83 @@ func TestExchangeCodeForToken_WithLogger(t *testing.T) {
 	config.BaseURL = server.URL
 
 	client, _ := NewClient(config)
-	err := client.ExchangeCodeForToken(context.Background(), "code")
+	err := client.ExchangeCodeForToken(context.Background(), "code", "state", "state")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestExchangeCodeForToken_StateMismatch asserts the core CSRF protection:
+// when the state echoed on the callback does not match the state persisted
+// by the caller (from GetAuthURL), ExchangeCodeForToken must refuse the
+// exchange BEFORE hitting the token endpoint, so no attacker-controlled code
+// can be redeemed into the victim's session.
+func TestExchangeCodeForToken_StateMismatch(t *testing.T) {
+	called := false
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(200)
+	}
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(server.Close)
+
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	config.BaseURL = server.URL
+
+	client, _ := NewClient(config)
+	err := client.ExchangeCodeForToken(context.Background(), "code", "expected-state", "attacker-chosen-state")
+	if err == nil {
+		t.Fatal("expected error for state mismatch")
+	}
+	if !IsAuthenticationError(err) {
+		t.Errorf("expected AuthenticationError (CSRF), got %T: %v", err, err)
+	}
+	if called {
+		t.Error("token endpoint must not be called when state mismatches")
+	}
+	if client.IsAuthenticated() {
+		t.Error("client must not become authenticated when state mismatches")
+	}
+}
+
+func TestExchangeCodeForToken_EmptyExpectedState(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	client, _ := NewClient(config)
+
+	err := client.ExchangeCodeForToken(context.Background(), "code", "", "anything")
+	if err == nil {
+		t.Fatal("expected error when expectedState is empty (defeats CSRF check)")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
+	}
+}
+
+func TestExchangeCodeForToken_EmptyReceivedState(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+	client, _ := NewClient(config)
+
+	err := client.ExchangeCodeForToken(context.Background(), "code", "expected", "")
+	if err == nil {
+		t.Fatal("expected error when receivedState is empty")
+	}
+	if !IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T", err)
 	}
 }
 

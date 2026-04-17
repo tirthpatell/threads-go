@@ -42,11 +42,15 @@ func main() {
 	fmt.Println("\n=== Example 2: OAuth Authorization Flow ===")
 
 	scopes := []string{"threads_basic", "threads_content_publish", "threads_manage_insights"}
-	authURL := client.GetAuthURL(scopes)
+	authURL, state, err := client.GetAuthURL(scopes)
+	if err != nil {
+		log.Fatalf("Failed to generate authorization URL: %v", err)
+	}
 	fmt.Printf("1. Direct user to: %s\n", authURL)
-	fmt.Printf("2. User authorizes and you get a code in your redirect URI\n")
-	fmt.Printf("3. Exchange code for token:\n")
-	fmt.Printf("   err := client.ExchangeCodeForToken(ctx, authorizationCode)\n")
+	fmt.Printf("2. Persist the returned state in the user's session (e.g. signed cookie): %s\n", state)
+	fmt.Printf("3. User authorizes; callback URL carries ?code=...&state=...\n")
+	fmt.Printf("4. Verify the callback state matches and exchange code for token:\n")
+	fmt.Printf("   err := client.ExchangeCodeForToken(ctx, code, state, receivedState)\n")
 	fmt.Printf("4. Convert to long-lived token:\n")
 	fmt.Printf("   err := client.GetLongLivedToken(ctx)\n")
 

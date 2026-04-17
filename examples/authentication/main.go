@@ -156,20 +156,25 @@ func main() {
 		"threads_manage_replies",
 	}
 
-	authURL := client.GetAuthURL(scopes)
+	authURL, expectedState, err := client.GetAuthURL(scopes)
+	if err != nil {
+		log.Fatalf("Failed to generate authorization URL: %v", err)
+	}
 	fmt.Println("Authorization URL generated:")
 	fmt.Printf("   %s\n", authURL)
 	fmt.Println()
 	fmt.Println("Instructions:")
 	fmt.Println("   1. Open the URL above in your browser")
 	fmt.Println("   2. Log in to Threads and authorize your application")
-	fmt.Println("   3. Copy the authorization code from the redirect URL")
-	fmt.Println("   4. The code will be in the 'code' parameter of the callback URL")
+	fmt.Println("   3. Copy the authorization code AND the state value from the redirect URL")
+	fmt.Println("   4. Both appear as query parameters ('code' and 'state') on the callback")
+	fmt.Println()
+	fmt.Printf("In a real web app you would persist expectedState in the user's session\n(signed cookie, server-side session store, etc). For this CLI demo the value is:\n   %s\n", expectedState)
 	fmt.Println()
 
 	// Step 3: Get authorization code from user
-	fmt.Print("Enter the authorization code (or 'skip' to skip): ")
 	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter the authorization code (or 'skip' to skip): ")
 	authCode, _ := reader.ReadString('\n')
 	authCode = strings.TrimSpace(authCode)
 
@@ -179,11 +184,17 @@ func main() {
 		return
 	}
 
-	// Step 4: Exchange authorization code for access token
+	fmt.Print("Enter the state value echoed on the callback: ")
+	receivedState, _ := reader.ReadString('\n')
+	receivedState = strings.TrimSpace(receivedState)
+
+	// Step 4: Exchange authorization code for access token.
+	// The client compares expectedState (from GetAuthURL) against receivedState
+	// (from the callback) and refuses the exchange if they disagree.
 	fmt.Println()
 	fmt.Println("Step 3: Exchange authorization code for access token")
 
-	err = client.ExchangeCodeForToken(context.Background(), authCode)
+	err = client.ExchangeCodeForToken(context.Background(), authCode, expectedState, receivedState)
 	if err != nil {
 		fmt.Printf(" Token exchange failed: %v\n", err)
 
