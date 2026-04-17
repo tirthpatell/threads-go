@@ -51,7 +51,7 @@ func main() {
 	fmt.Printf("3. User authorizes; callback URL carries ?code=...&state=...\n")
 	fmt.Printf("4. Verify the callback state matches and exchange code for token:\n")
 	fmt.Printf("   err := client.ExchangeCodeForToken(ctx, code, state, receivedState)\n")
-	fmt.Printf("4. Convert to long-lived token:\n")
+	fmt.Printf("5. Convert to long-lived token:\n")
 	fmt.Printf("   err := client.GetLongLivedToken(ctx)\n")
 
 	// Example 3: Using existing access token
