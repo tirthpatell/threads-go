@@ -84,14 +84,11 @@ func NewHTTPClient(config *Config, rateLimiter *RateLimiter) *HTTPClient {
 	return h
 }
 
-// getRateLimiter returns the current rate limiter (possibly nil) atomically.
 func (h *HTTPClient) getRateLimiter() *RateLimiter {
 	return h.rateLimiter.Load()
 }
 
-// SetRateLimiter atomically swaps the HTTPClient's rate limiter. Passing nil
-// disables rate-limit enforcement on the request path.
-func (h *HTTPClient) SetRateLimiter(rl *RateLimiter) {
+func (h *HTTPClient) setRateLimiter(rl *RateLimiter) {
 	h.rateLimiter.Store(rl)
 }
 

@@ -771,7 +771,7 @@ func (c *Client) DisableRateLimiting() {
 	defer c.mu.Unlock()
 	c.rateLimiter = nil
 	if c.httpClient != nil {
-		c.httpClient.SetRateLimiter(nil)
+		c.httpClient.setRateLimiter(nil)
 	}
 }
 
@@ -791,7 +791,7 @@ func (c *Client) EnableRateLimiting() {
 		c.rateLimiter = NewRateLimiter(rateLimiterConfig)
 	}
 	if c.httpClient != nil {
-		c.httpClient.SetRateLimiter(c.rateLimiter)
+		c.httpClient.setRateLimiter(c.rateLimiter)
 	}
 }
 

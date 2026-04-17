@@ -7,25 +7,29 @@ import (
 	"testing"
 )
 
-func TestDeletePost_Success(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
+// ownedPostHandler serves GETs that make post_1 look owned by user 12345
+// and routes DELETE /post_1 to the given status/body.
+func ownedPostHandler(deleteStatus int, deleteBody string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == "DELETE" {
-			w.WriteHeader(200)
-			_, _ = w.Write([]byte(`{"success":true,"deleted_id":"post_1"}`))
+			w.WriteHeader(deleteStatus)
+			_, _ = w.Write([]byte(deleteBody))
 			return
 		}
 		w.WriteHeader(200)
 		if strings.HasPrefix(r.URL.Path, "/12345") {
-			// GetMe -> GetUser("12345")
 			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
 			return
 		}
-		// GetPost("post_1")
 		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
 	}
+}
 
-	client := testClient(t, http.HandlerFunc(handler))
+func TestDeletePost_Success(t *testing.T) {
+	handler := ownedPostHandler(200, `{"success":true,"deleted_id":"post_1"}`)
+
+	client := testClient(t, handler)
 
 	deletedID, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err != nil {
@@ -59,22 +63,7 @@ func TestDeletePost_NotFound(t *testing.T) {
 }
 
 func TestDeletePostWithConfirmation_Success(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.Method == "DELETE" {
-			w.WriteHeader(200)
-			_, _ = w.Write([]byte(`{"success":true}`))
-			return
-		}
-		w.WriteHeader(200)
-		if strings.HasPrefix(r.URL.Path, "/12345") {
-			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
-	}
-
-	client := testClient(t, http.HandlerFunc(handler))
+	client := testClient(t, ownedPostHandler(200, `{"success":true}`))
 
 	confirmed := false
 	_, err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("post_1"), func(post *Post) bool {
@@ -208,22 +197,7 @@ func TestDeletePost_ServerError(t *testing.T) {
 }
 
 func TestDeletePost_Delete404(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.Method == "DELETE" {
-			w.WriteHeader(404)
-			_, _ = w.Write([]byte(`{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-			return
-		}
-		w.WriteHeader(200)
-		if strings.HasPrefix(r.URL.Path, "/12345") {
-			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
-	}
-
-	client := testClient(t, http.HandlerFunc(handler))
+	client := testClient(t, ownedPostHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
 	client.config.RetryConfig.MaxRetries = 0
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
@@ -237,22 +211,7 @@ func TestDeletePost_Delete404(t *testing.T) {
 }
 
 func TestDeletePost_WithLogger(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.Method == "DELETE" {
-			w.WriteHeader(200)
-			_, _ = w.Write([]byte(`{"success":true}`))
-			return
-		}
-		w.WriteHeader(200)
-		if strings.HasPrefix(r.URL.Path, "/12345") {
-			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
-	}
-
-	client := testClient(t, http.HandlerFunc(handler))
+	client := testClient(t, ownedPostHandler(200, `{"success":true}`))
 	client.config.Logger = &noopLogger{}
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
@@ -262,22 +221,7 @@ func TestDeletePost_WithLogger(t *testing.T) {
 }
 
 func TestDeletePost_MalformedDeleteResponse(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.Method == "DELETE" {
-			w.WriteHeader(200)
-			_, _ = w.Write([]byte(`not json`))
-			return
-		}
-		w.WriteHeader(200)
-		if strings.HasPrefix(r.URL.Path, "/12345") {
-			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
-	}
-
-	client := testClient(t, http.HandlerFunc(handler))
+	client := testClient(t, ownedPostHandler(200, `not json`))
 
 	// Should succeed even with malformed response (200 status assumed success)
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
@@ -287,22 +231,7 @@ func TestDeletePost_MalformedDeleteResponse(t *testing.T) {
 }
 
 func TestDeletePost_MalformedDeleteResponseWithLogger(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.Method == "DELETE" {
-			w.WriteHeader(200)
-			_, _ = w.Write([]byte(`not json`))
-			return
-		}
-		w.WriteHeader(200)
-		if strings.HasPrefix(r.URL.Path, "/12345") {
-			_, _ = w.Write([]byte(`{"id":"12345","username":"me"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
-	}
-
-	client := testClient(t, http.HandlerFunc(handler))
+	client := testClient(t, ownedPostHandler(200, `not json`))
 	client.config.Logger = &noopLogger{}
 
 	// Should succeed even with malformed response and logger
@@ -336,10 +265,8 @@ func TestValidatePostOwnership_DifferentUser(t *testing.T) {
 	}
 }
 
-// TestValidatePostOwnership_BothUsernamesEmpty guards against a previous bug
-// where empty strings on both sides compared equal and the check silently
-// passed, authorising deletion of a post whose ownership could not actually
-// be determined.
+// TestValidatePostOwnership_BothUsernamesEmpty: empty identifiers on both
+// sides must not compare equal.
 func TestValidatePostOwnership_BothUsernamesEmpty(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -364,8 +291,6 @@ func TestValidatePostOwnership_BothUsernamesEmpty(t *testing.T) {
 	}
 }
 
-// TestValidatePostOwnership_MatchingOwnerID verifies the happy path via
-// the preferred owner-ID comparison.
 func TestValidatePostOwnership_MatchingOwnerID(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

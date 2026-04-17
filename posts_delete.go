@@ -96,14 +96,10 @@ func (c *Client) DeletePostWithConfirmation(ctx context.Context, postID PostID, 
 	return c.DeletePost(ctx, postID)
 }
 
-// validatePostOwnership validates that the post exists and is owned by the
-// authenticated user. The check prefers the stable numeric owner ID
-// (post.Owner.ID vs me.ID) and only falls back to username comparison when
-// the API response doesn't include an owner object. Empty identifiers on
-// either side are treated as "cannot verify" and cause the check to fail
-// closed — otherwise two empty strings would compare equal and silently
-// authorise deletion of a post whose ownership we could not actually
-// determine.
+// validatePostOwnership checks that the post exists and is owned by the
+// authenticated user. Empty identifiers on either side fail closed —
+// otherwise two empty strings would compare equal and silently authorise
+// deletion.
 func (c *Client) validatePostOwnership(ctx context.Context, postID PostID) error {
 	// Get the post to check ownership
 	post, err := c.GetPost(ctx, postID)

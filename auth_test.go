@@ -518,10 +518,8 @@ func TestGetAuthURL_DefaultScopes(t *testing.T) {
 	}
 }
 
-// TestGetAuthURL_UniqueState guards against a regression where the library
-// could return a deterministic or predictable state (e.g. a wall-clock-second
-// fallback). Two calls in quick succession must produce distinct, high-entropy
-// states, otherwise a guessable state neutralises CSRF protection.
+// TestGetAuthURL_UniqueState: state must be unpredictable — a guessable
+// state neutralises CSRF protection.
 func TestGetAuthURL_UniqueState(t *testing.T) {
 	config := &Config{
 		ClientID:     "my-app-id",

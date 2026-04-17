@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -324,7 +325,7 @@ func TestCreateErrorFromResponse_429_NoRateLimit(t *testing.T) {
 func TestCreateErrorFromResponse_429_WithRateLimiter(t *testing.T) {
 	rl := NewRateLimiter(&RateLimiterConfig{InitialLimit: 100})
 	httpClient := &HTTPClient{logger: &noopLogger{}}
-	httpClient.SetRateLimiter(rl)
+	httpClient.setRateLimiter(rl)
 	resp := &Response{
 		StatusCode: 429,
 		Body:       []byte(`{"error":{"message":"rate limited"}}`),
@@ -472,10 +473,9 @@ func TestHTTPClient_NoRateLimitHeaders(t *testing.T) {
 	}
 }
 
-// TestSanitizeURL_RedactsSecrets guards the debug-log path against leaking
-// bearer tokens and app secrets. The Threads API puts access_token and
-// client_secret in query params for several auth endpoints; when the Debug
-// logger is wired up, the full URL used to be written to logs verbatim.
+// TestSanitizeURL_RedactsSecrets: several Threads auth endpoints pass
+// access_token / client_secret in the query string, so the debug log path
+// must redact them before writing the URL.
 func TestSanitizeURL_RedactsSecrets(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -524,24 +524,15 @@ func TestSanitizeURL_RedactsSecrets(t *testing.T) {
 			}
 			got := sanitizeURL(u)
 			for _, want := range tc.want {
-				if !contains(got, want) {
+				if !strings.Contains(got, want) {
 					t.Errorf("expected %q to contain %q", got, want)
 				}
 			}
 			for _, notWant := range tc.notWant {
-				if contains(got, notWant) {
+				if strings.Contains(got, notWant) {
 					t.Errorf("expected %q NOT to contain %q", got, notWant)
 				}
 			}
 		})
 	}
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
