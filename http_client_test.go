@@ -470,3 +470,77 @@ func TestHTTPClient_NoRateLimitHeaders(t *testing.T) {
 		t.Error("expected nil rate limit info when no headers")
 	}
 }
+
+// TestSanitizeURL_RedactsSecrets guards the debug-log path against leaking
+// bearer tokens and app secrets. The Threads API puts access_token and
+// client_secret in query params for several auth endpoints; when the Debug
+// logger is wired up, the full URL used to be written to logs verbatim.
+func TestSanitizeURL_RedactsSecrets(t *testing.T) {
+	cases := []struct {
+		name    string
+		raw     string
+		want    []string // substrings that MUST appear
+		notWant []string // substrings that MUST NOT appear
+	}{
+		{
+			name:    "access_token redacted",
+			raw:     "https://api.example.com/me?fields=id&access_token=SECRET123",
+			want:    []string{"access_token=%5BREDACTED%5D", "fields=id"},
+			notWant: []string{"SECRET123"},
+		},
+		{
+			name:    "client_secret redacted",
+			raw:     "https://api.example.com/oauth/access_token?client_id=pub&client_secret=S3CR3T&grant_type=client_credentials",
+			want:    []string{"client_secret=%5BREDACTED%5D", "client_id=pub"},
+			notWant: []string{"S3CR3T"},
+		},
+		{
+			name:    "multiple sensitive params redacted",
+			raw:     "https://api.example.com/debug_token?input_token=IT&access_token=AT",
+			want:    []string{"input_token=%5BREDACTED%5D", "access_token=%5BREDACTED%5D"},
+			notWant: []string{"IT", "AT"},
+		},
+		{
+			name:    "no query string unchanged",
+			raw:     "https://api.example.com/me",
+			want:    []string{"https://api.example.com/me"},
+			notWant: []string{"REDACTED"},
+		},
+		{
+			name: "only non-sensitive params unchanged",
+			raw:  "https://api.example.com/me?fields=id,username",
+			// Non-sensitive → fast path returns original RawQuery unmodified.
+			want:    []string{"fields=id,username"},
+			notWant: []string{"REDACTED"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			u, err := url.Parse(tc.raw)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			got := sanitizeURL(u)
+			for _, want := range tc.want {
+				if !contains(got, want) {
+					t.Errorf("expected %q to contain %q", got, want)
+				}
+			}
+			for _, notWant := range tc.notWant {
+				if contains(got, notWant) {
+					t.Errorf("expected %q NOT to contain %q", got, notWant)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}

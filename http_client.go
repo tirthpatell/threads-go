@@ -392,7 +392,7 @@ func (h *HTTPClient) logRequest(req *http.Request, body interface{}) {
 
 	fields := []interface{}{
 		"method", req.Method,
-		"url", req.URL.String(),
+		"url", sanitizeURL(req.URL),
 		"headers", h.sanitizeHeaders(req.Header),
 	}
 
@@ -459,6 +459,44 @@ func (h *HTTPClient) sanitizeHeaders(headers http.Header) map[string]string {
 		}
 	}
 	return sanitized
+}
+
+// sensitiveQueryParams is the set of query-parameter names that may carry
+// bearer tokens or app secrets and must be redacted before logging. The
+// Threads API token/refresh/debug endpoints accept these as query params
+// (see GetLongLivedToken, RefreshToken, DebugToken, GetAppAccessToken).
+var sensitiveQueryParams = map[string]struct{}{
+	"access_token":  {},
+	"client_secret": {},
+	"input_token":   {},
+	"code":          {},
+	"refresh_token": {},
+}
+
+// sanitizeURL returns a version of u safe to write to logs: any query
+// parameter in sensitiveQueryParams is replaced with [REDACTED]. The original
+// URL is not mutated.
+func sanitizeURL(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	if u.RawQuery == "" {
+		return u.String()
+	}
+	q := u.Query()
+	redacted := false
+	for name := range q {
+		if _, ok := sensitiveQueryParams[strings.ToLower(name)]; ok {
+			q.Set(name, "[REDACTED]")
+			redacted = true
+		}
+	}
+	if !redacted {
+		return u.String()
+	}
+	clone := *u
+	clone.RawQuery = q.Encode()
+	return clone.String()
 }
 
 // GET performs a GET request
