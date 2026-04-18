@@ -57,13 +57,21 @@ config := &threads.Config{
 
 client, err := threads.NewClient(config)
 
-// Get authorization URL
-authURL := client.GetAuthURL(config.Scopes)
-// Redirect user to authURL
+// Get authorization URL. Persist state in the user's session (signed cookie,
+// server-side session, etc.) — it MUST be compared against the state query
+// parameter on the OAuth callback to prevent CSRF / authorization-code
+// fixation (RFC 6749 §10.12, OAuth 2.0 Security BCP §4.7).
+authURL, state, err := client.GetAuthURL(config.Scopes)
+if err != nil {
+    log.Fatal(err)
+}
+// Redirect user to authURL; on the callback, read ?code=... and ?state=...
 
-// Exchange authorization code for token
+// Exchange authorization code for token. The client refuses the exchange if
+// the expected state does not match the state echoed on the callback
+// (constant-time compare).
 ctx := context.Background()
-err = client.ExchangeCodeForToken(ctx, "auth-code-from-callback")
+err = client.ExchangeCodeForToken(ctx, "auth-code-from-callback", state, receivedState)
 err = client.GetLongLivedToken(ctx) // Convert to long-lived token
 ```
 

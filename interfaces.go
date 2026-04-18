@@ -19,11 +19,17 @@ type ClientInterface interface {
 
 // Authenticator handles OAuth 2.0 authentication and token management
 type Authenticator interface {
-	// GetAuthURL generates an authorization URL for the OAuth 2.0 flow
-	GetAuthURL(scopes []string) string
+	// GetAuthURL generates an authorization URL for the OAuth 2.0 flow and
+	// returns the random state embedded in it. Callers MUST persist the state
+	// and pass it as expectedState on the callback to prevent CSRF / code
+	// fixation (see Client.GetAuthURL for details).
+	GetAuthURL(scopes []string) (authURL, state string, err error)
 
-	// ExchangeCodeForToken exchanges an authorization code for an access token
-	ExchangeCodeForToken(ctx context.Context, code string) error
+	// ExchangeCodeForToken exchanges an authorization code for an access
+	// token. expectedState is the value returned by GetAuthURL (persisted in
+	// the user's session); receivedState is the state echoed by the provider
+	// on the callback. A mismatch is refused before any network call.
+	ExchangeCodeForToken(ctx context.Context, code, expectedState, receivedState string) error
 
 	// GetLongLivedToken converts a short-lived token to a long-lived token
 	GetLongLivedToken(ctx context.Context) error

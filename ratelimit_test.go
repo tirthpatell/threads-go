@@ -423,3 +423,42 @@ func TestRateLimiter_WaitWithFrequentRateLimiting(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// TestDisableRateLimiting_PropagatesToHTTPClient guards against a regression
+// where Client.DisableRateLimiting nulled c.rateLimiter but left the
+// HTTPClient's own rate-limiter reference intact, so the request path kept
+// consulting the old limiter. After disable, the HTTPClient must see nil.
+func TestDisableRateLimiting_PropagatesToHTTPClient(t *testing.T) {
+	config := &Config{
+		ClientID:     "id",
+		ClientSecret: "secret",
+		RedirectURI:  "https://example.com/callback",
+	}
+	config.SetDefaults()
+
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	if client.httpClient.getRateLimiter() == nil {
+		t.Fatal("precondition: HTTPClient should start with a rate limiter")
+	}
+
+	client.DisableRateLimiting()
+
+	if rl := client.httpClient.getRateLimiter(); rl != nil {
+		t.Errorf("HTTPClient still has a rate limiter after Disable: %p", rl)
+	}
+	if client.IsRateLimited() {
+		t.Error("IsRateLimited must report false when limiter is disabled")
+	}
+	if client.IsNearRateLimit(0.5) {
+		t.Error("IsNearRateLimit must report false when limiter is disabled")
+	}
+
+	client.EnableRateLimiting()
+	if client.httpClient.getRateLimiter() == nil {
+		t.Error("HTTPClient must have a rate limiter again after Enable")
+	}
+}

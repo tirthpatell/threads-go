@@ -37,10 +37,10 @@
 //		log.Fatal(err)
 //	}
 //
-//	// Get authorization URL
-//	authURL := client.GetAuthURL(config.Scopes)
-//	// Direct user to authURL, then exchange code for token
-//	err = client.ExchangeCodeForToken("auth-code-from-callback")
+//	// Get authorization URL and persist the returned state in the user's session
+//	authURL, state, err := client.GetAuthURL(config.Scopes)
+//	// Direct user to authURL. On the callback, exchange the code AND verify state:
+//	err = client.ExchangeCodeForToken(ctx, code, state, receivedState)
 //
 // For complete API documentation: https://developers.facebook.com/docs/threads
 package threads
@@ -726,29 +726,60 @@ func safeJSONUnmarshal(data []byte, v any, context string, requestID string) err
 	return nil
 }
 
-// GetRateLimitStatus returns the current rate limit status
+// GetRateLimitStatus returns the current rate limit status. If rate limiting
+// has been disabled via DisableRateLimiting, returns a zero RateLimitStatus.
 func (c *Client) GetRateLimitStatus() RateLimitStatus {
-	return c.rateLimiter.GetStatus()
+	c.mu.RLock()
+	rl := c.rateLimiter
+	c.mu.RUnlock()
+	if rl == nil {
+		return RateLimitStatus{}
+	}
+	return rl.GetStatus()
 }
 
-// IsNearRateLimit returns true if the client is close to hitting rate limits
+// IsNearRateLimit returns true if the client is close to hitting rate limits.
+// Returns false if rate limiting has been disabled.
 func (c *Client) IsNearRateLimit(threshold float64) bool {
-	return c.rateLimiter.IsNearLimit(threshold)
+	c.mu.RLock()
+	rl := c.rateLimiter
+	c.mu.RUnlock()
+	if rl == nil {
+		return false
+	}
+	return rl.IsNearLimit(threshold)
 }
 
-// IsRateLimited returns true if the client is currently rate limited by the API
+// IsRateLimited returns true if the client is currently rate limited by the
+// API. Returns false if rate limiting has been disabled.
 func (c *Client) IsRateLimited() bool {
-	return c.rateLimiter.IsRateLimited()
+	c.mu.RLock()
+	rl := c.rateLimiter
+	c.mu.RUnlock()
+	if rl == nil {
+		return false
+	}
+	return rl.IsRateLimited()
 }
 
-// DisableRateLimiting disables the rate limiter entirely
-// Use with caution - this will allow unlimited requests to the API
+// DisableRateLimiting disables the rate limiter entirely.
+// Use with caution — this will allow unlimited requests to the API.
+// The change is propagated to the underlying HTTPClient so it takes effect
+// on the request path (HTTPClient holds its own rate-limiter reference).
 func (c *Client) DisableRateLimiting() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.rateLimiter = nil
+	if c.httpClient != nil {
+		c.httpClient.setRateLimiter(nil)
+	}
 }
 
-// EnableRateLimiting re-enables rate limiting with a new rate limiter
+// EnableRateLimiting re-enables rate limiting with a new rate limiter and
+// installs it on the underlying HTTPClient.
 func (c *Client) EnableRateLimiting() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.rateLimiter == nil {
 		rateLimiterConfig := &RateLimiterConfig{
 			InitialLimit:      100,
@@ -759,11 +790,21 @@ func (c *Client) EnableRateLimiting() {
 		}
 		c.rateLimiter = NewRateLimiter(rateLimiterConfig)
 	}
+	if c.httpClient != nil {
+		c.httpClient.setRateLimiter(c.rateLimiter)
+	}
 }
 
-// WaitForRateLimit blocks until it's safe to make another request
+// WaitForRateLimit blocks until it's safe to make another request. If rate
+// limiting has been disabled, returns immediately.
 func (c *Client) WaitForRateLimit(ctx context.Context) error {
-	return c.rateLimiter.Wait(ctx)
+	c.mu.RLock()
+	rl := c.rateLimiter
+	c.mu.RUnlock()
+	if rl == nil {
+		return nil
+	}
+	return rl.Wait(ctx)
 }
 
 // TestAPICall makes a test API call (for testing purposes only)

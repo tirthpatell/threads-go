@@ -96,7 +96,10 @@ func (c *Client) DeletePostWithConfirmation(ctx context.Context, postID PostID, 
 	return c.DeletePost(ctx, postID)
 }
 
-// validatePostOwnership validates that the post exists and is owned by the authenticated user
+// validatePostOwnership checks that the post exists and is owned by the
+// authenticated user. Empty identifiers on either side fail closed —
+// otherwise two empty strings would compare equal and silently authorise
+// deletion.
 func (c *Client) validatePostOwnership(ctx context.Context, postID PostID) error {
 	// Get the post to check ownership
 	post, err := c.GetPost(ctx, postID)
@@ -110,7 +113,19 @@ func (c *Client) validatePostOwnership(ctx context.Context, postID PostID) error
 		return NewAuthenticationError(401, "Cannot verify post ownership", "Failed to get authenticated user information")
 	}
 
-	// Check if the post belongs to the authenticated user
+	// Prefer owner ID when available — it's the canonical identifier and
+	// doesn't collide with username handle changes.
+	if post.Owner != nil && post.Owner.ID != "" && me.ID != "" {
+		if post.Owner.ID != me.ID {
+			return NewAuthenticationError(403, "Cannot delete post", fmt.Sprintf("Post %s is owned by user ID %s, not %s", postID.String(), post.Owner.ID, me.ID))
+		}
+		return nil
+	}
+
+	// Fall back to username when owner ID is unavailable.
+	if post.Username == "" || me.Username == "" {
+		return NewAuthenticationError(403, "Cannot verify post ownership", fmt.Sprintf("Post %s has no comparable owner identifier (post.Owner=%v, post.Username=%q, me.ID=%q, me.Username=%q)", postID.String(), post.Owner, post.Username, me.ID, me.Username))
+	}
 	if post.Username != me.Username {
 		return NewAuthenticationError(403, "Cannot delete post", fmt.Sprintf("Post %s belongs to user %s, not %s", postID.String(), post.Username, me.Username))
 	}
