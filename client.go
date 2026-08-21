@@ -199,6 +199,16 @@ type TokenInfo struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// normalized returns a copy with a canonical TokenType, leaving the receiver
+// untouched. Tokens reach the client from several places — the token
+// endpoints, persisted storage written by older versions, callers building
+// TokenInfo by hand — and every one of them goes through here.
+func (t *TokenInfo) normalized() *TokenInfo {
+	c := *t
+	c.TokenType = normalizeTokenType(c.TokenType)
+	return &c
+}
+
 // MemoryTokenStorage provides in-memory token storage (default)
 type MemoryTokenStorage struct {
 	token *TokenInfo
@@ -483,8 +493,9 @@ func NewClient(config *Config) (*Client, error) {
 
 	// Try to load existing token from storage
 	if tokenInfo, err := tokenStorage.Load(); err == nil {
-		client.tokenInfo = tokenInfo
-		client.accessToken = tokenInfo.AccessToken
+		stored := tokenInfo.normalized()
+		client.tokenInfo = stored
+		client.accessToken = stored.AccessToken
 	}
 
 	return client, nil
@@ -576,20 +587,16 @@ func (c *Client) SetTokenInfo(tokenInfo *TokenInfo) error {
 		return fmt.Errorf("tokenInfo cannot be nil")
 	}
 
-	// Normalize here so every path — token endpoints, persisted tokens written
-	// by older versions, caller-supplied TokenInfo — agrees on the token type.
-	// Work on a copy to avoid mutating the caller's struct.
-	stored := *tokenInfo
-	stored.TokenType = normalizeTokenType(stored.TokenType)
+	stored := tokenInfo.normalized()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.tokenInfo = &stored
+	c.tokenInfo = stored
 	c.accessToken = stored.AccessToken
 
 	// Store the token using the configured storage
-	if err := c.tokenStorage.Store(&stored); err != nil {
+	if err := c.tokenStorage.Store(stored); err != nil {
 		return fmt.Errorf("failed to store token: %w", err)
 	}
 

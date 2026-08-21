@@ -1082,3 +1082,32 @@ func TestSetTokenInfo_DoesNotMutateCaller(t *testing.T) {
 		t.Errorf("expected %q, got %q", TokenTypeBearer, got)
 	}
 }
+
+func TestNewClient_NormalizesTokenTypeFromStorage(t *testing.T) {
+	for _, stored := range []string{"", "bearer"} {
+		config := &Config{
+			ClientID:     "test-id",
+			ClientSecret: "test-secret",
+			RedirectURI:  "https://example.com/callback",
+			TokenStorage: &MemoryTokenStorage{token: &TokenInfo{
+				AccessToken: "persisted",
+				TokenType:   stored,
+				ExpiresAt:   time.Now().Add(time.Hour),
+				UserID:      "12345",
+				CreatedAt:   time.Now(),
+			}},
+		}
+		config.SetDefaults()
+
+		client, err := NewClient(config)
+		if err != nil {
+			t.Fatalf("stored %q: %v", stored, err)
+		}
+		if got := client.GetTokenInfo().TokenType; got != TokenTypeBearer {
+			t.Errorf("stored %q: GetTokenInfo gave %q, want %q", stored, got, TokenTypeBearer)
+		}
+		if got := client.GetTokenDebugInfo()["token_type"]; got != TokenTypeBearer {
+			t.Errorf("stored %q: debug info gave %q, want %q", stored, got, TokenTypeBearer)
+		}
+	}
+}
