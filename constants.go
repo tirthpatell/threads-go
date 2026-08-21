@@ -37,7 +37,7 @@ const (
 	MinSearchTimestamp = 1688540400 // Minimum timestamp for search queries (July 5, 2023)
 
 	// Library version
-	Version = "1.8.0"
+	Version = "1.10.0"
 
 	// HTTP client defaults
 	DefaultHTTPTimeout = 30 * time.Second // Default HTTP request timeout
@@ -47,6 +47,11 @@ const (
 // API Endpoints
 const (
 	BaseAPIURL = "https://graph.threads.net"
+)
+
+// Token types
+const (
+	TokenTypeBearer = "Bearer" // Canonical token_type; the API returns it lowercase
 )
 
 // Field Sets for API requests

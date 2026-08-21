@@ -199,6 +199,16 @@ type TokenInfo struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// normalized returns a copy with a canonical TokenType, leaving the receiver
+// untouched. Tokens reach the client from several places — the token
+// endpoints, persisted storage written by older versions, callers building
+// TokenInfo by hand — and every one of them goes through here.
+func (t *TokenInfo) normalized() *TokenInfo {
+	c := *t
+	c.TokenType = normalizeTokenType(c.TokenType)
+	return &c
+}
+
 // MemoryTokenStorage provides in-memory token storage (default)
 type MemoryTokenStorage struct {
 	token *TokenInfo
@@ -483,8 +493,9 @@ func NewClient(config *Config) (*Client, error) {
 
 	// Try to load existing token from storage
 	if tokenInfo, err := tokenStorage.Load(); err == nil {
-		client.tokenInfo = tokenInfo
-		client.accessToken = tokenInfo.AccessToken
+		stored := tokenInfo.normalized()
+		client.tokenInfo = stored
+		client.accessToken = stored.AccessToken
 	}
 
 	return client, nil
@@ -517,7 +528,7 @@ func NewClientWithToken(accessToken string, config *Config) (*Client, error) {
 	// Set a temporary token to enable the debug call
 	tempTokenInfo := &TokenInfo{
 		AccessToken: accessToken,
-		TokenType:   "Bearer",
+		TokenType:   TokenTypeBearer,
 		ExpiresAt:   time.Now().Add(time.Hour), // Temporary, will be updated
 		CreatedAt:   time.Now(),
 	}
@@ -559,7 +570,7 @@ func NewClientWithToken(accessToken string, config *Config) (*Client, error) {
 	// 60-day expiry (standard Threads long-lived token lifetime).
 	if err := client.SetTokenInfo(&TokenInfo{
 		AccessToken: accessToken,
-		TokenType:   "Bearer",
+		TokenType:   TokenTypeBearer,
 		ExpiresAt:   time.Now().Add(60 * 24 * time.Hour),
 		UserID:      me.ID,
 		CreatedAt:   time.Now(),
@@ -576,14 +587,16 @@ func (c *Client) SetTokenInfo(tokenInfo *TokenInfo) error {
 		return fmt.Errorf("tokenInfo cannot be nil")
 	}
 
+	stored := tokenInfo.normalized()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.tokenInfo = tokenInfo
-	c.accessToken = tokenInfo.AccessToken
+	c.tokenInfo = stored
+	c.accessToken = stored.AccessToken
 
 	// Store the token using the configured storage
-	if err := c.tokenStorage.Store(tokenInfo); err != nil {
+	if err := c.tokenStorage.Store(stored); err != nil {
 		return fmt.Errorf("failed to store token: %w", err)
 	}
 
