@@ -1042,3 +1042,43 @@ func TestRefreshToken_TokenTypeNormalized(t *testing.T) {
 		t.Errorf("expected %q, got %q", TokenTypeBearer, got)
 	}
 }
+
+func TestLoadTokenFromStorage_NormalizesTokenType(t *testing.T) {
+	for _, stored := range []string{"", "bearer"} {
+		client := testClient(t, jsonHandler(200, `{}`))
+		client.tokenStorage = &MemoryTokenStorage{token: &TokenInfo{
+			AccessToken: "persisted",
+			TokenType:   stored,
+			ExpiresAt:   time.Now().Add(time.Hour),
+			UserID:      "12345",
+			CreatedAt:   time.Now(),
+		}}
+
+		if err := client.LoadTokenFromStorage(); err != nil {
+			t.Fatalf("stored %q: unexpected error: %v", stored, err)
+		}
+		if got := client.GetTokenInfo().TokenType; got != TokenTypeBearer {
+			t.Errorf("stored %q: expected %q, got %q", stored, TokenTypeBearer, got)
+		}
+	}
+}
+
+func TestSetTokenInfo_DoesNotMutateCaller(t *testing.T) {
+	client := testClient(t, jsonHandler(200, `{}`))
+	caller := &TokenInfo{
+		AccessToken: "tok",
+		TokenType:   "bearer",
+		ExpiresAt:   time.Now().Add(time.Hour),
+		CreatedAt:   time.Now(),
+	}
+
+	if err := client.SetTokenInfo(caller); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if caller.TokenType != "bearer" {
+		t.Errorf("caller struct was mutated: TokenType = %q", caller.TokenType)
+	}
+	if got := client.GetTokenInfo().TokenType; got != TokenTypeBearer {
+		t.Errorf("expected %q, got %q", TokenTypeBearer, got)
+	}
+}

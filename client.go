@@ -576,14 +576,20 @@ func (c *Client) SetTokenInfo(tokenInfo *TokenInfo) error {
 		return fmt.Errorf("tokenInfo cannot be nil")
 	}
 
+	// Normalize here so every path — token endpoints, persisted tokens written
+	// by older versions, caller-supplied TokenInfo — agrees on the token type.
+	// Work on a copy to avoid mutating the caller's struct.
+	stored := *tokenInfo
+	stored.TokenType = normalizeTokenType(stored.TokenType)
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.tokenInfo = tokenInfo
-	c.accessToken = tokenInfo.AccessToken
+	c.tokenInfo = &stored
+	c.accessToken = stored.AccessToken
 
 	// Store the token using the configured storage
-	if err := c.tokenStorage.Store(tokenInfo); err != nil {
+	if err := c.tokenStorage.Store(&stored); err != nil {
 		return fmt.Errorf("failed to store token: %w", err)
 	}
 

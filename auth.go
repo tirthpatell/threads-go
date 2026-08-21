@@ -164,7 +164,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 
 	tokenInfo := &TokenInfo{
 		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.NormalizedTokenType(),
+		TokenType:   tokenResp.TokenType,
 		ExpiresAt:   expiresAt,
 		UserID:      fmt.Sprintf("%d", tokenResp.UserID),
 		CreatedAt:   now,
@@ -241,7 +241,7 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 
 	tokenInfo := &TokenInfo{
 		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.NormalizedTokenType(),
+		TokenType:   tokenResp.TokenType,
 		ExpiresAt:   expiresAt,
 		UserID:      userID,
 		CreatedAt:   now,
@@ -317,7 +317,7 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 
 	tokenInfo := &TokenInfo{
 		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.NormalizedTokenType(),
+		TokenType:   tokenResp.TokenType,
 		ExpiresAt:   expiresAt,
 		UserID:      userID,
 		CreatedAt:   now,
