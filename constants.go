@@ -49,6 +49,11 @@ const (
 	BaseAPIURL = "https://graph.threads.net"
 )
 
+// Token types
+const (
+	TokenTypeBearer = "Bearer" // Canonical token_type; the API returns it lowercase
+)
+
 // Field Sets for API requests
 const (
 	// Post fields

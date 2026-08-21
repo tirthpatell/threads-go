@@ -517,7 +517,7 @@ func NewClientWithToken(accessToken string, config *Config) (*Client, error) {
 	// Set a temporary token to enable the debug call
 	tempTokenInfo := &TokenInfo{
 		AccessToken: accessToken,
-		TokenType:   "Bearer",
+		TokenType:   TokenTypeBearer,
 		ExpiresAt:   time.Now().Add(time.Hour), // Temporary, will be updated
 		CreatedAt:   time.Now(),
 	}
@@ -559,7 +559,7 @@ func NewClientWithToken(accessToken string, config *Config) (*Client, error) {
 	// 60-day expiry (standard Threads long-lived token lifetime).
 	if err := client.SetTokenInfo(&TokenInfo{
 		AccessToken: accessToken,
-		TokenType:   "Bearer",
+		TokenType:   TokenTypeBearer,
 		ExpiresAt:   time.Now().Add(60 * 24 * time.Hour),
 		UserID:      me.ID,
 		CreatedAt:   time.Now(),

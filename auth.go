@@ -16,6 +16,9 @@ import (
 // TokenResponse represents the response from token exchange endpoint.
 // This structure is returned when exchanging an authorization code for an access token.
 // The access token can then be used to authenticate API requests.
+//
+// TokenType holds the raw wire value; use NormalizedTokenType for the
+// canonical spelling.
 type TokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
@@ -37,6 +40,25 @@ type LongLivedTokenResponse struct {
 type AppAccessTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
+}
+
+// NormalizedTokenType returns the canonical token type for the response.
+func (r *TokenResponse) NormalizedTokenType() string { return normalizeTokenType(r.TokenType) }
+
+// NormalizedTokenType returns the canonical token type for the response.
+func (r *LongLivedTokenResponse) NormalizedTokenType() string { return normalizeTokenType(r.TokenType) }
+
+// NormalizedTokenType returns the canonical token type for the response.
+func (r *AppAccessTokenResponse) NormalizedTokenType() string { return normalizeTokenType(r.TokenType) }
+
+// normalizeTokenType canonicalizes a token_type value. The API returns it
+// lowercase and older responses omit it entirely; both become TokenTypeBearer.
+// Any other value is returned unchanged.
+func normalizeTokenType(tokenType string) string {
+	if tokenType == "" || strings.EqualFold(tokenType, TokenTypeBearer) {
+		return TokenTypeBearer
+	}
+	return tokenType
 }
 
 // generateState generates a random state parameter for OAuth security
@@ -142,7 +164,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 
 	tokenInfo := &TokenInfo{
 		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.TokenType,
+		TokenType:   tokenResp.NormalizedTokenType(),
 		ExpiresAt:   expiresAt,
 		UserID:      fmt.Sprintf("%d", tokenResp.UserID),
 		CreatedAt:   now,
@@ -159,7 +181,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 	if c.config.Logger != nil {
 		c.config.Logger.Info("Successfully exchanged authorization code for access token",
 			"user_id", fmt.Sprintf("%d", tokenResp.UserID),
-			"token_type", tokenResp.TokenType,
+			"token_type", tokenResp.NormalizedTokenType(),
 			"expires_at", expiresAt)
 	}
 
@@ -219,7 +241,7 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 
 	tokenInfo := &TokenInfo{
 		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.TokenType,
+		TokenType:   tokenResp.NormalizedTokenType(),
 		ExpiresAt:   expiresAt,
 		UserID:      userID,
 		CreatedAt:   now,
@@ -237,7 +259,7 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 		c.config.Logger.Info("Successfully converted to long-lived token",
 			"expires_in_seconds", tokenResp.ExpiresIn,
 			"expires_at", expiresAt,
-			"token_type", tokenResp.TokenType)
+			"token_type", tokenResp.NormalizedTokenType())
 	}
 
 	return nil
@@ -295,7 +317,7 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 
 	tokenInfo := &TokenInfo{
 		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.TokenType,
+		TokenType:   tokenResp.NormalizedTokenType(),
 		ExpiresAt:   expiresAt,
 		UserID:      userID,
 		CreatedAt:   now,
@@ -313,7 +335,7 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 		c.config.Logger.Info("Successfully refreshed access token",
 			"expires_in_seconds", tokenResp.ExpiresIn,
 			"expires_at", expiresAt,
-			"token_type", tokenResp.TokenType)
+			"token_type", tokenResp.NormalizedTokenType())
 	}
 
 	return nil
@@ -548,7 +570,7 @@ func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse
 
 	if c.config.Logger != nil {
 		c.config.Logger.Info("Successfully obtained app access token",
-			"token_type", tokenResp.TokenType)
+			"token_type", tokenResp.NormalizedTokenType())
 	}
 
 	return &tokenResp, nil
@@ -584,7 +606,7 @@ func (c *Client) SetTokenFromDebugInfo(accessToken string, debugResp *DebugToken
 
 	tokenInfo := &TokenInfo{
 		AccessToken: accessToken,
-		TokenType:   "Bearer", // Threads API uses Bearer tokens
+		TokenType:   TokenTypeBearer,
 		ExpiresAt:   expiresAt,
 		UserID:      debugResp.Data.UserID,
 		CreatedAt:   issuedAt, // Use the issued_at from the API
