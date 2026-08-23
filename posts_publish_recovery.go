@@ -148,8 +148,8 @@ func (c *Client) tryRecoverPublishedPost(
 	// Gate 2: poll /me/threads for a matching post. The carousel just
 	// flipped to PUBLISHED but indexing may lag slightly; retry briefly.
 	userID := c.getUserID()
-	if userID == "" {
-		return nil, NewAuthenticationError(401, "User ID not available", "Cannot determine user ID from token")
+	if !UserID(userID).Valid() {
+		return nil, NewAuthenticationError(401, "Invalid user ID", "Token contains an invalid user ID")
 	}
 	sinceTS := publishStart.Add(-publishRecoveryWindow).Unix()
 

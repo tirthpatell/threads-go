@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+// ErrResponseTooLarge is returned when an HTTP response exceeds the configured
+// maximum response body size.
+var ErrResponseTooLarge = errors.New("response body exceeds configured maximum")
+
 // BaseError represents a base error type for all Threads API errors.
 // For error handling patterns, see: https://developers.facebook.com/docs/threads/troubleshooting
 type BaseError struct {

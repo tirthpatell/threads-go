@@ -57,15 +57,15 @@ func (c *Client) DeletePost(ctx context.Context, postID PostID) (string, error) 
 	if len(resp.Body) > 0 {
 		if err := json.Unmarshal(resp.Body, &deleteResp); err != nil {
 			// If we can't parse the response but got 200, assume success
-			if c.config.Logger != nil {
-				c.config.Logger.Warn("Could not parse delete response, but got 200 status", "post_id", postID.String())
+			if logger := c.getConfig().Logger; logger != nil {
+				logger.Warn("Could not parse delete response, but got 200 status", "post_id", postID.String())
 			}
 		}
 	}
 
 	// Log successful deletion if logger is available
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Successfully deleted post", "post_id", postID.String())
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Successfully deleted post", "post_id", postID.String())
 	}
 
 	return deleteResp.DeletedID, nil

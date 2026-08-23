@@ -54,20 +54,47 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
+// clientState couples a configuration with the transport snapshot installed
+// for it. The two must be loaded together: a request that reads credentials
+// from config and then separately snapshots the transport could send old
+// credentials to a BaseURL installed by a concurrent UpdateConfig.
+type clientState struct {
+	config *Config
+	http   httpConfigSnapshot
+}
+
 // Client provides access to the Threads API with thread-safe operations.
 // It implements the ClientInterface and all its composed interfaces.
+//
+// state is stored in an atomic.Pointer because UpdateConfig can swap it while
+// other goroutines are mid-request. The pointed-to clientState is never
+// mutated after being stored, so readers can dereference the loaded pointer
+// without holding mu. Readers must go through getState/getConfig.
 type Client struct {
-	config       *Config
+	state        atomic.Pointer[clientState]
 	httpClient   *HTTPClient
 	rateLimiter  *RateLimiter
-	baseURL      string
 	accessToken  string
 	tokenInfo    *TokenInfo
 	tokenStorage TokenStorage
 	mu           sync.RWMutex // Protects token-related fields
+}
+
+// getState returns the client's current configuration together with the
+// transport snapshot it was installed with. The returned value is owned by the
+// client and must not be modified.
+func (c *Client) getState() *clientState {
+	return c.state.Load()
+}
+
+// getConfig returns the client's current configuration. The returned value is
+// owned by the client and must not be modified.
+func (c *Client) getConfig() *Config {
+	return c.getState().config
 }
 
 // Config holds configuration settings for the Threads API client.
@@ -110,6 +137,10 @@ type Config struct {
 	// If nil, default retry configuration will be used.
 	RetryConfig *RetryConfig
 
+	// MaxResponseBodySize is the maximum number of response-body bytes retained
+	// in memory (optional). Default: 16 MiB.
+	MaxResponseBodySize int64
+
 	// Logger provides structured logging for debugging and monitoring (optional).
 	// If nil, no logging will be performed. Implement the Logger interface
 	// to provide custom logging behavior.
@@ -122,8 +153,15 @@ type Config struct {
 
 	// BaseURL is the base URL for the Threads API (optional).
 	// Default: "https://graph.threads.net". Only change this for testing
-	// or if using a proxy/gateway.
+	// or if using a proxy/gateway. Plaintext http:// is rejected unless the
+	// host is a loopback address or AllowInsecureBaseURL is set.
 	BaseURL string
+
+	// AllowInsecureBaseURL permits a plaintext http:// BaseURL pointing at a
+	// non-loopback host (optional). Default: false. Set this only when TLS is
+	// terminated by a trusted proxy or gateway on a private network; access
+	// tokens are sent in cleartext to whatever BaseURL names.
+	AllowInsecureBaseURL bool
 
 	// UserAgent is the User-Agent header sent with requests (optional).
 	// Default: "threads-go/<version>". Customize this to identify your application.
@@ -254,9 +292,10 @@ func NewConfig() *Config {
 			MaxDelay:      30 * time.Second,
 			BackoffFactor: 2.0,
 		},
-		BaseURL:   "https://graph.threads.net",
-		UserAgent: DefaultUserAgent,
-		Debug:     false,
+		MaxResponseBodySize: DefaultMaxResponseBodySize,
+		BaseURL:             "https://graph.threads.net",
+		UserAgent:           DefaultUserAgent,
+		Debug:               false,
 	}
 }
 
@@ -355,9 +394,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("RedirectURI is required")
 	}
 
-	// Validate redirect URI format
-	if !strings.HasPrefix(c.RedirectURI, "http://") && !strings.HasPrefix(c.RedirectURI, "https://") {
-		return fmt.Errorf("RedirectURI must be a valid HTTP or HTTPS URL")
+	if err := validateRedirectURI(c.RedirectURI); err != nil {
+		return err
 	}
 
 	if len(c.Scopes) == 0 {
@@ -388,6 +426,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("HTTPTimeout must be positive")
 	}
 
+	if c.MaxResponseBodySize < 0 {
+		return fmt.Errorf("MaxResponseBodySize must not be negative")
+	}
+
 	if c.RetryConfig != nil {
 		if c.RetryConfig.MaxRetries < 0 {
 			return fmt.Errorf("RetryConfig.MaxRetries must be non-negative")
@@ -414,11 +456,27 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("BaseURL is required")
 	}
 
-	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
-		return fmt.Errorf("BaseURL must be a valid HTTP or HTTPS URL")
+	if err := validateBaseURL(c.BaseURL, c.AllowInsecureBaseURL); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+// clone returns a deep copy of the configuration. The client keeps a private
+// clone so that defaulting never mutates the caller's Config and so a stored
+// config can be treated as immutable by concurrent readers.
+func (c *Config) clone() *Config {
+	if c == nil {
+		return nil
+	}
+	copied := *c
+	copied.Scopes = append([]string(nil), c.Scopes...)
+	if c.RetryConfig != nil {
+		retryConfigCopy := *c.RetryConfig
+		copied.RetryConfig = &retryConfigCopy
+	}
+	return &copied
 }
 
 // SetDefaults sets default values for any unset configuration options
@@ -428,7 +486,11 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.HTTPTimeout == 0 {
-		c.HTTPTimeout = 30 * time.Second
+		c.HTTPTimeout = DefaultHTTPTimeout
+	}
+
+	if c.MaxResponseBodySize == 0 {
+		c.MaxResponseBodySize = DefaultMaxResponseBodySize
 	}
 
 	if c.RetryConfig == nil {
@@ -456,7 +518,9 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 
-	// Set defaults for any missing configuration
+	// Default onto a private copy so the caller's Config is never mutated,
+	// and so the stored config can be treated as immutable.
+	config = config.clone()
 	config.SetDefaults()
 
 	// Validate the configuration
@@ -484,12 +548,11 @@ func NewClient(config *Config) (*Client, error) {
 	httpClient := NewHTTPClient(config, rateLimiter)
 
 	client := &Client{
-		config:       config,
 		httpClient:   httpClient,
 		rateLimiter:  rateLimiter,
-		baseURL:      config.BaseURL,
 		tokenStorage: tokenStorage,
 	}
+	client.state.Store(&clientState{config: config, http: httpClient.configSnapshot()})
 
 	// Try to load existing token from storage
 	if tokenInfo, err := tokenStorage.Load(); err == nil {
@@ -703,30 +766,32 @@ func (c *Client) ClearToken() error {
 // GetConfig returns a copy of the client configuration
 func (c *Client) GetConfig() *Config {
 	// Return a copy to prevent external modification
-	configCopy := *c.config
-	return &configCopy
+	return c.getConfig().clone()
 }
 
-// UpdateConfig updates the client configuration with validation
-// Note: This does not affect already established connections
+// UpdateConfig updates the client configuration with validation. Future HTTP
+// requests use the new transport settings; requests already in flight retain
+// the configuration snapshot with which they started.
 func (c *Client) UpdateConfig(newConfig *Config) error {
 	if newConfig == nil {
 		return fmt.Errorf("config cannot be nil")
 	}
 
+	// Default onto a private copy before validation, matching NewClient: the
+	// caller's Config is left untouched even when validation fails.
+	effective := newConfig.clone()
+	effective.SetDefaults()
+
 	// Validate the new configuration
-	if err := newConfig.Validate(); err != nil {
+	if err := effective.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
-
-	// Set defaults for any missing configuration
-	newConfig.SetDefaults()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.config = newConfig
-	c.baseURL = newConfig.BaseURL
+	c.httpClient.updateConfig(effective)
+	c.state.Store(&clientState{config: effective, http: c.httpClient.configSnapshot()})
 
 	return nil
 }
@@ -829,7 +894,7 @@ func (c *Client) EnableRateLimiting() {
 			BackoffMultiplier: 2.0,
 			MaxBackoff:        5 * time.Minute,
 			QueueSize:         100,
-			Logger:            c.config.Logger,
+			Logger:            c.getConfig().Logger,
 		}
 		c.rateLimiter = NewRateLimiter(rateLimiterConfig)
 	}

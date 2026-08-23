@@ -205,14 +205,14 @@ func (c *Client) managePendingReply(ctx context.Context, replyID PostID, approve
 
 	if len(resp.Body) > 0 {
 		if err := json.Unmarshal(resp.Body, &manageResp); err != nil {
-			if c.config.Logger != nil {
-				c.config.Logger.Warn(fmt.Sprintf("Could not parse %s reply response, but got 200 status", action), "reply_id", replyID.String())
+			if logger := c.getConfig().Logger; logger != nil {
+				logger.Warn(fmt.Sprintf("Could not parse %s reply response, but got 200 status", action), "reply_id", replyID.String())
 			}
 		}
 	}
 
-	if c.config.Logger != nil {
-		c.config.Logger.Info(fmt.Sprintf("Successfully %sd pending reply", action), "reply_id", replyID.String())
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info(fmt.Sprintf("Successfully %sd pending reply", action), "reply_id", replyID.String())
 	}
 
 	return nil
@@ -267,15 +267,15 @@ func (c *Client) manageReplyVisibility(ctx context.Context, replyID PostID, hide
 	if len(resp.Body) > 0 {
 		if err := json.Unmarshal(resp.Body, &manageResp); err != nil {
 			// If we can't parse the response but got 200, assume success
-			if c.config.Logger != nil {
-				c.config.Logger.Warn(fmt.Sprintf("Could not parse %s reply response, but got 200 status", action), "reply_id", replyID.String())
+			if logger := c.getConfig().Logger; logger != nil {
+				logger.Warn(fmt.Sprintf("Could not parse %s reply response, but got 200 status", action), "reply_id", replyID.String())
 			}
 		}
 	}
 
 	// Log successful action if logger is available
-	if c.config.Logger != nil {
-		c.config.Logger.Info(fmt.Sprintf("Successfully %sd reply", action), "reply_id", replyID.String())
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info(fmt.Sprintf("Successfully %sd reply", action), "reply_id", replyID.String())
 	}
 
 	return nil

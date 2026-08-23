@@ -285,6 +285,117 @@ func TestWrapNetworkError_Generic(t *testing.T) {
 	}
 }
 
+func TestWrapNetworkError_RedactsSensitiveQueryValues(t *testing.T) {
+	httpClient := &HTTPClient{logger: &noopLogger{}}
+	original := &url.Error{
+		Op:  "Get",
+		URL: "https://api.example.com/debug_token?input_token=INPUT-SECRET&access_token=ACCESS-SECRET&fields=id",
+		Err: errors.New("connection refused"),
+	}
+
+	wrapped := httpClient.wrapNetworkError(original)
+	for _, secret := range []string{"INPUT-SECRET", "ACCESS-SECRET"} {
+		if strings.Contains(wrapped.Error(), secret) {
+			t.Fatalf("network error exposed %q: %v", secret, wrapped)
+		}
+	}
+
+	var networkErr *NetworkError
+	if !errors.As(wrapped, &networkErr) {
+		t.Fatalf("expected NetworkError, got %T", wrapped)
+	}
+	var safeURLError *url.Error
+	if !errors.As(wrapped, &safeURLError) {
+		t.Fatalf("expected wrapped *url.Error, got %T", networkErr.Cause)
+	}
+	if !strings.Contains(safeURLError.URL, "input_token=%5BREDACTED%5D") ||
+		!strings.Contains(safeURLError.URL, "access_token=%5BREDACTED%5D") ||
+		!strings.Contains(safeURLError.URL, "fields=id") {
+		t.Fatalf("unexpected sanitized URL: %s", safeURLError.URL)
+	}
+}
+
+func TestHTTPClient_ResponseBodyLimit(t *testing.T) {
+	t.Run("allows response at limit", func(t *testing.T) {
+		httpClient := newTestHTTPClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte("12345678"))
+		}), &RetryConfig{
+			MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1,
+		})
+		httpClient.mu.Lock()
+		httpClient.maxResponseBodySize = 8
+		httpClient.mu.Unlock()
+
+		resp, err := httpClient.GET("/test", nil, "token")
+		if err != nil {
+			t.Fatalf("expected response at limit to succeed: %v", err)
+		}
+		if got := string(resp.Body); got != "12345678" {
+			t.Fatalf("unexpected response body %q", got)
+		}
+	})
+
+	t.Run("rejects response over limit", func(t *testing.T) {
+		var requests atomic.Int32
+		httpClient := newTestHTTPClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests.Add(1)
+			_, _ = w.Write([]byte("123456789"))
+		}), &RetryConfig{
+			MaxRetries: 3, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1,
+		})
+		httpClient.mu.Lock()
+		httpClient.maxResponseBodySize = 8
+		httpClient.mu.Unlock()
+
+		resp, err := httpClient.GET("/test", nil, "token")
+		if resp != nil {
+			t.Fatalf("expected no response for oversized body, got %#v", resp)
+		}
+		if !errors.Is(err, ErrResponseTooLarge) {
+			t.Fatalf("expected ErrResponseTooLarge, got %v", err)
+		}
+		if got := requests.Load(); got != 1 {
+			t.Fatalf("oversized response must not be retried; got %d requests", got)
+		}
+	})
+}
+
+func TestBuildRequestURLRejectsURLControlDataInPath(t *testing.T) {
+	for _, path := range []string{
+		"users/123",
+		"//attacker.example/path",
+		"/users/123?access_token=attacker",
+		"/users/123?",
+		"/users/123#fragment",
+	} {
+		if _, err := buildRequestURL("https://graph.threads.net", path, nil); err == nil {
+			t.Errorf("expected unsafe path %q to be rejected", path)
+		}
+	}
+
+	got, err := buildRequestURL("https://graph.threads.net/", "/users/123", url.Values{"fields": {"id"}})
+	if err != nil {
+		t.Fatalf("expected legitimate path to succeed: %v", err)
+	}
+	if got != "https://graph.threads.net/users/123?fields=id" {
+		t.Fatalf("unexpected request URL %q", got)
+	}
+}
+
+func TestHTTPClientRejectsCleartextRemoteBaseURLAtRequestBoundary(t *testing.T) {
+	httpClient := NewHTTPClient(&Config{
+		HTTPTimeout: time.Second,
+		RetryConfig: &RetryConfig{
+			MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1,
+		},
+		BaseURL: "http://api.example.com",
+	}, nil)
+
+	if _, err := httpClient.GET("/test", nil, "sensitive-token"); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
+		t.Fatalf("expected request boundary to reject remote cleartext BaseURL, got %v", err)
+	}
+}
+
 func TestCreateErrorFromResponse_401(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	resp := &Response{
@@ -406,28 +517,28 @@ func TestLogRequest_WithLogger(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 	// Should not panic
-	httpClient.logRequest(req, nil)
+	httpClient.logRequest(httpClient.logger, req, nil)
 }
 
 func TestLogRequest_WithJSONBody(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	req, _ := http.NewRequest("POST", "http://example.com/test", nil)
 	req.Header.Set("Content-Type", "application/json")
-	httpClient.logRequest(req, map[string]string{"key": "value"})
+	httpClient.logRequest(httpClient.logger, req, map[string]string{"key": "value"})
 }
 
 func TestLogRequest_WithNonJSONBody(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	req, _ := http.NewRequest("POST", "http://example.com/test", nil)
 	req.Header.Set("Content-Type", "text/plain")
-	httpClient.logRequest(req, "hello")
+	httpClient.logRequest(httpClient.logger, req, "hello")
 }
 
 func TestLogRequest_NilLogger(t *testing.T) {
 	httpClient := &HTTPClient{logger: nil}
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 	// Should not panic
-	httpClient.logRequest(req, nil)
+	httpClient.logRequest(httpClient.logger, req, nil)
 }
 
 func TestHTTPClient_ParseRetryAfterHeader(t *testing.T) {
@@ -513,6 +624,12 @@ func TestSanitizeURL_RedactsSecrets(t *testing.T) {
 			// Non-sensitive → fast path returns original RawQuery unmodified.
 			want:    []string{"fields=id,username"},
 			notWant: []string{"REDACTED"},
+		},
+		{
+			name:    "malformed query is fully redacted",
+			raw:     "https://api.example.com/me?access_token=SECRET;malformed",
+			want:    []string{"REDACTED"},
+			notWant: []string{"SECRET"},
 		},
 	}
 

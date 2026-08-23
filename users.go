@@ -76,8 +76,8 @@ func (c *Client) GetMe(ctx context.Context) (*User, error) {
 
 	// Get user ID from token info
 	userID := c.getUserID()
-	if userID == "" {
-		return nil, NewAuthenticationError(401, "User ID not available", "Cannot determine user ID from token")
+	if !UserID(userID).Valid() {
+		return nil, NewAuthenticationError(401, "Invalid user ID", "Token contains an invalid user ID")
 	}
 
 	// Use the standard GetUser method for consistency

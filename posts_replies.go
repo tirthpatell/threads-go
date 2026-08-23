@@ -46,8 +46,8 @@ func (c *Client) CreateReply(ctx context.Context, content *PostContent) (*Post, 
 	}
 
 	// Wait recommended 10 seconds before publishing reply
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Reply container created, waiting before publishing", "container_id", containerID)
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Reply container created, waiting before publishing", "container_id", containerID)
 	}
 
 	// Use context timeout or fixed delay

@@ -103,7 +103,7 @@ func TestCreateReply_ContainerCreateError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateReply(context.Background(), &PostContent{
 		Text:    "My reply",
@@ -261,7 +261,7 @@ func TestCreateReply_PublishError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateReply(context.Background(), &PostContent{
 		Text:    "My reply",

@@ -51,7 +51,7 @@ func TestDeletePost_InvalidID(t *testing.T) {
 
 func TestDeletePost_NotFound(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("nonexistent"))
 	if err == nil {
@@ -126,7 +126,7 @@ func TestDeletePostWithConfirmation_NilCallback(t *testing.T) {
 
 func TestDeletePostWithConfirmation_GetPostError(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.DeletePostWithConfirmation(context.Background(), ConvertToPostID("nonexistent"), func(post *Post) bool {
 		return true
@@ -150,7 +150,7 @@ func TestDeletePost_Forbidden(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
@@ -188,7 +188,7 @@ func TestDeletePost_ServerError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
@@ -198,7 +198,7 @@ func TestDeletePost_ServerError(t *testing.T) {
 
 func TestDeletePost_Delete404(t *testing.T) {
 	client := testClient(t, ownedPostHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err == nil {
@@ -212,7 +212,7 @@ func TestDeletePost_Delete404(t *testing.T) {
 
 func TestDeletePost_WithLogger(t *testing.T) {
 	client := testClient(t, ownedPostHandler(200, `{"success":true}`))
-	client.config.Logger = &noopLogger{}
+	overrideConfig(client, func(cfg *Config) { cfg.Logger = &noopLogger{} })
 
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))
 	if err != nil {
@@ -232,7 +232,7 @@ func TestDeletePost_MalformedDeleteResponse(t *testing.T) {
 
 func TestDeletePost_MalformedDeleteResponseWithLogger(t *testing.T) {
 	client := testClient(t, ownedPostHandler(200, `not json`))
-	client.config.Logger = &noopLogger{}
+	overrideConfig(client, func(cfg *Config) { cfg.Logger = &noopLogger{} })
 
 	// Should succeed even with malformed response and logger
 	_, err := client.DeletePost(context.Background(), ConvertToPostID("post_1"))

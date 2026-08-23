@@ -41,6 +41,25 @@ func testClient(t *testing.T, handler http.Handler) *Client {
 	return client
 }
 
+// disableRetries turns off retries on the client's HTTP layer so tests that
+// exercise error paths don't wait through the backoff schedule.
+func disableRetries(client *Client) {
+	client.httpClient.mu.Lock()
+	retryConfig := *client.httpClient.retryConfig
+	retryConfig.MaxRetries = 0
+	client.httpClient.retryConfig = &retryConfig
+	client.httpClient.mu.Unlock()
+}
+
+// overrideConfig applies mutate to a copy of the client's config and installs
+// it, mirroring how UpdateConfig swaps in a new immutable snapshot.
+func overrideConfig(client *Client, mutate func(cfg *Config)) {
+	state := client.getState()
+	cfg := state.config.clone()
+	mutate(cfg)
+	client.state.Store(&clientState{config: cfg, http: state.http})
+}
+
 // jsonHandler returns an http.HandlerFunc that responds with the given status and JSON body.
 func jsonHandler(status int, body string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
