@@ -114,9 +114,15 @@ func createTestClient(t *testing.T) *threads.Client {
 	return client
 }
 
+// hasCredentials reports whether the environment carries enough configuration
+// to talk to the live API.
+func hasCredentials() bool {
+	return testAccessToken != "" && testUserID != ""
+}
+
 // skipIfNoCredentials skips the test if credentials are not available
 func skipIfNoCredentials(t *testing.T) {
-	if testAccessToken == "" || testUserID == "" {
+	if !hasCredentials() {
 		t.Skip("Skipping integration test: no credentials available")
 	}
 }
@@ -207,7 +213,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 	t.Run("CreateAndDeleteTextPost", func(t *testing.T) {
 		// Create a test post using public API
 		content := &threads.TextPostContent{
-			Text:         fmt.Sprintf("CI Integration test post created at %s", time.Now().Format(time.RFC3339)),
+			Text:         markTestPost(fmt.Sprintf("CI Integration test post created at %s", time.Now().Format(time.RFC3339))),
 			ReplyControl: threads.ReplyControlEveryone,
 		}
 
@@ -216,6 +222,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 			t.Errorf("CreateTextPost failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		if post.ID == "" {
 			t.Error("Created post should have an ID")
@@ -234,15 +241,6 @@ func TestIntegration_PostOperations(t *testing.T) {
 		} else if retrievedPost.ID != post.ID {
 			t.Errorf("Retrieved post ID mismatch: expected %s, got %s", post.ID, retrievedPost.ID)
 		}
-
-		// Clean up - delete the test post using public API
-		time.Sleep(1 * time.Second) // Wait a bit before deletion
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
-		} else {
-			t.Logf("Successfully deleted test post %s", post.ID)
-		}
 	})
 
 	t.Run("CreateAndDeleteImagePost", func(t *testing.T) {
@@ -251,7 +249,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		content := &threads.ImagePostContent{
-			Text:     fmt.Sprintf("CI Integration test image post created at %s", time.Now().Format(time.RFC3339)),
+			Text:     markTestPost(fmt.Sprintf("CI Integration test image post created at %s", time.Now().Format(time.RFC3339))),
 			ImageURL: testImageURL1,
 			AltText:  "Test image for CI integration testing",
 		}
@@ -261,6 +259,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 			t.Errorf("CreateImagePost failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		if post.ID == "" {
 			t.Error("Created image post should have an ID")
@@ -271,15 +270,6 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		t.Logf("Created image post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
-
-		// Clean up - delete the test post
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
-		} else {
-			t.Logf("Successfully deleted image post %s", post.ID)
-		}
 	})
 
 	t.Run("CreateAndDeleteVideoPost", func(t *testing.T) {
@@ -288,7 +278,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		content := &threads.VideoPostContent{
-			Text:     fmt.Sprintf("CI Integration test video post created at %s", time.Now().Format(time.RFC3339)),
+			Text:     markTestPost(fmt.Sprintf("CI Integration test video post created at %s", time.Now().Format(time.RFC3339))),
 			VideoURL: testVideoURL,
 			AltText:  "Test video for CI integration testing",
 		}
@@ -300,6 +290,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 			t.Skip("Skipping video post test due to processing failure - this is common with video URLs")
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		if post.ID == "" {
 			t.Error("Created video post should have an ID")
@@ -310,15 +301,6 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		t.Logf("Created video post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
-
-		// Clean up - delete the test post
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete video post %s: %v", post.ID, err)
-		} else {
-			t.Logf("Successfully deleted video post %s", post.ID)
-		}
 	})
 
 	t.Run("CreateAndDeleteCarouselPost", func(t *testing.T) {
@@ -345,7 +327,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 
 		// Create carousel post
 		content := &threads.CarouselPostContent{
-			Text:     fmt.Sprintf("CI Integration test carousel post created at %s", time.Now().Format(time.RFC3339)),
+			Text:     markTestPost(fmt.Sprintf("CI Integration test carousel post created at %s", time.Now().Format(time.RFC3339))),
 			Children: []string{string(container1), string(container2)},
 		}
 
@@ -354,6 +336,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 			t.Errorf("CreateCarouselPost failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		if post.ID == "" {
 			t.Error("Created carousel post should have an ID")
@@ -364,15 +347,6 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		t.Logf("Created carousel post: ID=%s, Text=%s, MediaType=%s", post.ID, post.Text, post.MediaType)
-
-		// Clean up - delete the test post
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete carousel post %s: %v", post.ID, err)
-		} else {
-			t.Logf("Successfully deleted carousel post %s", post.ID)
-		}
 	})
 }
 
@@ -467,7 +441,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 	t.Run("TextPostWithSpoilers", func(t *testing.T) {
 		// Test text spoilers using text_entities
 		content := &threads.TextPostContent{
-			Text: "Spoiler alert: Darth Vader is Luke's father!",
+			Text: markTestPost("Spoiler alert: Darth Vader is Luke's father!"),
 			TextEntities: []threads.TextEntity{
 				{
 					EntityType: "SPOILER",
@@ -482,27 +456,19 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateTextPost with spoilers failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		if post.ID == "" {
 			t.Error("Created post should have an ID")
 		}
 
 		t.Logf("Created post with text spoiler: ID=%s, Text=%s", post.ID, post.Text)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete spoiler post %s: %v", post.ID, err)
-		} else {
-			t.Logf("Successfully deleted spoiler post %s", post.ID)
-		}
 	})
 
 	t.Run("TextPostWithMultipleSpoilers", func(t *testing.T) {
 		// Test multiple text spoilers
 		content := &threads.TextPostContent{
-			Text: "Two spoilers: Han dies and Rey is a Palpatine!",
+			Text: markTestPost("Two spoilers: Han dies and Rey is a Palpatine!"),
 			TextEntities: []threads.TextEntity{
 				{
 					EntityType: "SPOILER",
@@ -522,15 +488,9 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateTextPost with multiple spoilers failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created post with multiple spoilers: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete multi-spoiler post %s: %v", post.ID, err)
-		}
 	})
 
 	t.Run("ImagePostWithMediaSpoiler", func(t *testing.T) {
@@ -540,7 +500,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Test media spoiler with image
 		content := &threads.ImagePostContent{
-			Text:           fmt.Sprintf("CI test image spoiler created at %s", time.Now().Format(time.RFC3339)),
+			Text:           markTestPost(fmt.Sprintf("CI test image spoiler created at %s", time.Now().Format(time.RFC3339))),
 			ImageURL:       testImageURL1,
 			AltText:        "Spoiler image",
 			IsSpoilerMedia: true, // Mark the image as a spoiler
@@ -551,15 +511,9 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateImagePost with media spoiler failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created image post with media spoiler: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete image spoiler post %s: %v", post.ID, err)
-		}
 	})
 
 	t.Run("ImagePostWithTextAndMediaSpoilers", func(t *testing.T) {
@@ -569,7 +523,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Test both text and media spoilers
 		content := &threads.ImagePostContent{
-			Text:     "Spoiler: This image reveals the ending!",
+			Text:     markTestPost("Spoiler: This image reveals the ending!"),
 			ImageURL: testImageURL1,
 			TextEntities: []threads.TextEntity{
 				{
@@ -586,21 +540,15 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateImagePost with text and media spoilers failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created post with text and media spoilers: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete combined spoiler post %s: %v", post.ID, err)
-		}
 	})
 
 	t.Run("TextPostWithTextAttachment", func(t *testing.T) {
 		// Test text attachment with styling
 		content := &threads.TextPostContent{
-			Text: fmt.Sprintf("CI test post with text attachment at %s", time.Now().Format(time.RFC3339)),
+			Text: markTestPost(fmt.Sprintf("CI test post with text attachment at %s", time.Now().Format(time.RFC3339))),
 			TextAttachment: &threads.TextAttachment{
 				Plaintext: "This is a long-form text attachment with up to 10,000 characters. " +
 					"It supports rich formatting and allows you to share detailed content beyond the 500 character limit. " +
@@ -625,21 +573,15 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateTextPost with text attachment failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created post with text attachment: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete text attachment post %s: %v", post.ID, err)
-		}
 	})
 
 	t.Run("TextAttachmentWithLink", func(t *testing.T) {
 		// Test text attachment with link
 		content := &threads.TextPostContent{
-			Text: "Check out my detailed post with a link!",
+			Text: markTestPost("Check out my detailed post with a link!"),
 			TextAttachment: &threads.TextAttachment{
 				Plaintext:         "Here's a detailed explanation with additional information that couldn't fit in the main post. This text attachment includes a link for more details.",
 				LinkAttachmentURL: "https://example.com/more-info",
@@ -651,15 +593,9 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateTextPost with text attachment link failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created post with text attachment and link: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete text attachment link post %s: %v", post.ID, err)
-		}
 	})
 
 	t.Run("CarouselWithMediaSpoiler", func(t *testing.T) {
@@ -684,7 +620,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Create carousel with all media marked as spoilers
 		content := &threads.CarouselPostContent{
-			Text:           fmt.Sprintf("CI test carousel with spoilers at %s", time.Now().Format(time.RFC3339)),
+			Text:           markTestPost(fmt.Sprintf("CI test carousel with spoilers at %s", time.Now().Format(time.RFC3339))),
 			Children:       []string{string(container1), string(container2)},
 			IsSpoilerMedia: true, // Marks ALL carousel media as spoilers
 		}
@@ -694,15 +630,9 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 			t.Errorf("CreateCarouselPost with spoilers failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created carousel with spoiler media: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete carousel spoiler post %s: %v", post.ID, err)
-		}
 	})
 }
 
@@ -1006,7 +936,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 
 	t.Run("CreatePostWithReplyApprovals", func(t *testing.T) {
 		content := &threads.TextPostContent{
-			Text:                 fmt.Sprintf("CI test post with reply approvals at %s", time.Now().Format(time.RFC3339)),
+			Text:                 markTestPost(fmt.Sprintf("CI test post with reply approvals at %s", time.Now().Format(time.RFC3339))),
 			EnableReplyApprovals: true,
 		}
 
@@ -1015,6 +945,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 			t.Errorf("CreateTextPost with reply approvals failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		if post.ID == "" {
 			t.Error("Created post should have an ID")
@@ -1041,15 +972,6 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 		} else {
 			t.Logf("Pending replies (filtered): %d", len(pendingResp.Data))
 		}
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
-		} else {
-			t.Logf("Successfully deleted test post %s", post.ID)
-		}
 	})
 
 	t.Run("CreateImagePostWithReplyApprovals", func(t *testing.T) {
@@ -1058,7 +980,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 		}
 
 		content := &threads.ImagePostContent{
-			Text:                 fmt.Sprintf("CI test image post with reply approvals at %s", time.Now().Format(time.RFC3339)),
+			Text:                 markTestPost(fmt.Sprintf("CI test image post with reply approvals at %s", time.Now().Format(time.RFC3339))),
 			ImageURL:             testImageURL1,
 			EnableReplyApprovals: true,
 		}
@@ -1068,20 +990,14 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 			t.Errorf("CreateImagePost with reply approvals failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		t.Logf("Created image post with reply approvals: ID=%s", post.ID)
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete image post %s: %v", post.ID, err)
-		}
 	})
 
 	t.Run("GetPendingRepliesWithIgnoredFilter", func(t *testing.T) {
 		content := &threads.TextPostContent{
-			Text:                 fmt.Sprintf("CI test pending replies ignored filter at %s", time.Now().Format(time.RFC3339)),
+			Text:                 markTestPost(fmt.Sprintf("CI test pending replies ignored filter at %s", time.Now().Format(time.RFC3339))),
 			EnableReplyApprovals: true,
 		}
 
@@ -1090,6 +1006,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 			t.Errorf("CreateTextPost failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		time.Sleep(2 * time.Second)
 
@@ -1101,13 +1018,6 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 			t.Errorf("GetPendingReplies with ignored filter failed: %v", err)
 		} else {
 			t.Logf("Ignored replies: %d", len(pendingResp.Data))
-		}
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
 		}
 	})
 }
@@ -1136,7 +1046,7 @@ func TestIntegration_ReplyApprovalsValidation(t *testing.T) {
 	t.Run("InvalidApprovalStatus", func(t *testing.T) {
 		// Create a post first to have a valid post ID for pending replies
 		content := &threads.TextPostContent{
-			Text:                 fmt.Sprintf("CI test invalid approval status at %s", time.Now().Format(time.RFC3339)),
+			Text:                 markTestPost(fmt.Sprintf("CI test invalid approval status at %s", time.Now().Format(time.RFC3339))),
 			EnableReplyApprovals: true,
 		}
 
@@ -1145,6 +1055,7 @@ func TestIntegration_ReplyApprovalsValidation(t *testing.T) {
 			t.Errorf("CreateTextPost failed: %v", err)
 			return
 		}
+		trackPost(t, client, post.ID)
 
 		time.Sleep(2 * time.Second)
 
@@ -1156,13 +1067,6 @@ func TestIntegration_ReplyApprovalsValidation(t *testing.T) {
 			t.Error("Expected validation error for invalid approval status")
 		} else {
 			t.Logf("Validation error (expected): %v", err)
-		}
-
-		// Clean up
-		time.Sleep(1 * time.Second)
-		_, err = client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID))
-		if err != nil {
-			t.Logf("Warning: Failed to delete test post %s: %v", post.ID, err)
 		}
 	})
 
