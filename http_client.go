@@ -669,10 +669,41 @@ func (h *HTTPClient) logRetry(logger Logger, attempt, maxRetries int, err error)
 }
 
 // sanitizeHeaders removes sensitive headers from logging
+// sensitiveHeaders is the set of header names never written to logs in full.
+// RequestOptions.Headers lets callers add arbitrary headers, so the request
+// header set is not limited to the ones this package sets itself.
+var sensitiveHeaders = map[string]struct{}{
+	"authorization":       {},
+	"proxy-authorization": {},
+	"cookie":              {},
+	"set-cookie":          {},
+	"www-authenticate":    {},
+	"x-api-key":           {},
+	"api-key":             {},
+}
+
+// sensitiveHeaderSubstrings catches custom header names that carry
+// credentials, e.g. "X-Access-Token" or "X-App-Secret".
+var sensitiveHeaderSubstrings = []string{"token", "secret", "password", "credential", "auth"}
+
+// isSensitiveHeader reports whether a header's value must be redacted.
+func isSensitiveHeader(name string) bool {
+	name = strings.ToLower(name)
+	if _, ok := sensitiveHeaders[name]; ok {
+		return true
+	}
+	for _, substring := range sensitiveHeaderSubstrings {
+		if strings.Contains(name, substring) {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *HTTPClient) sanitizeHeaders(headers http.Header) map[string]string {
 	sanitized := make(map[string]string)
 	for key, values := range headers {
-		if strings.ToLower(key) == "authorization" {
+		if isSensitiveHeader(key) {
 			sanitized[key] = "[REDACTED]"
 		} else {
 			sanitized[key] = strings.Join(values, ", ")

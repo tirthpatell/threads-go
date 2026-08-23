@@ -282,12 +282,13 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 		return NewAuthenticationError(401, "No access token to refresh", "Must have an existing token to refresh")
 	}
 
+	st := c.getState()
 	params := url.Values{
 		"grant_type":   {"th_refresh_token"},
 		"access_token": {currentToken},
 	}
 
-	resp, err := c.httpClient.GET("/refresh_access_token", params, "")
+	resp, err := c.httpClient.GETWithConfig("/refresh_access_token", params, "", st.http)
 	if err != nil {
 		return NewNetworkError(0, "Failed to refresh token", err.Error(), true)
 	}

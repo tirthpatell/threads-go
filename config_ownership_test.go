@@ -369,3 +369,113 @@ func TestCredentialsAndDestinationStayPaired(t *testing.T) {
 		t.Errorf("%d requests delivered a client_secret to the wrong destination", got)
 	}
 }
+
+func TestSanitizeHeadersRedactsCredentialCarryingHeaders(t *testing.T) {
+	h := &HTTPClient{}
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer super-secret")
+	headers.Set("Cookie", "session=super-secret")
+	headers.Set("Proxy-Authorization", "Basic super-secret")
+	headers.Set("X-Api-Key", "super-secret")
+	headers.Set("X-Access-Token", "super-secret")
+	headers.Set("X-App-Secret", "super-secret")
+	headers.Set("Content-Type", "application/json")
+	headers.Set("User-Agent", "threads-go/test")
+
+	sanitized := h.sanitizeHeaders(headers)
+	for name, value := range sanitized {
+		if strings.Contains(value, "super-secret") {
+			t.Errorf("header %q leaked its value: %s", name, value)
+		}
+	}
+	if sanitized["Content-Type"] != "application/json" {
+		t.Errorf("Content-Type should not be redacted, got %q", sanitized["Content-Type"])
+	}
+	if sanitized["User-Agent"] != "threads-go/test" {
+		t.Errorf("User-Agent should not be redacted, got %q", sanitized["User-Agent"])
+	}
+}
+
+// TestRefreshTokenUsesCoupledSnapshot mirrors the credential-pairing test for
+// the refresh endpoint, which carries a bearer token rather than app creds.
+func TestRefreshTokenUsesCoupledSnapshot(t *testing.T) {
+	newRefreshServer := func(name string, seen *int32) *httptest.Server {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Query().Get("access_token") != "" {
+				atomic.AddInt32(seen, 1)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"tok-` + name + `","token_type":"bearer","expires_in":3600}`))
+		}))
+		t.Cleanup(server.Close)
+		return server
+	}
+
+	var seenA, seenB int32
+	serverA := newRefreshServer("a", &seenA)
+	serverB := newRefreshServer("b", &seenB)
+
+	configFor := func(baseURL string) *Config {
+		config := baseTestConfig()
+		config.BaseURL = baseURL
+		return config
+	}
+
+	client, err := NewClient(configFor(serverA.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	if err := client.SetTokenInfo(&TokenInfo{
+		AccessToken: "test-access-token",
+		TokenType:   TokenTypeBearer,
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
+		UserID:      "12345",
+		CreatedAt:   time.Now(),
+	}); err != nil {
+		t.Fatalf("SetTokenInfo: %v", err)
+	}
+
+	var updater, refreshers sync.WaitGroup
+	stop := make(chan struct{})
+
+	updater.Add(1)
+	go func() {
+		defer updater.Done()
+		for i := 0; ; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			baseURL := serverA.URL
+			if i%2 == 1 {
+				baseURL = serverB.URL
+			}
+			if err := client.UpdateConfig(configFor(baseURL)); err != nil {
+				t.Errorf("UpdateConfig: %v", err)
+				return
+			}
+		}
+	}()
+
+	for i := 0; i < 4; i++ {
+		refreshers.Add(1)
+		go func() {
+			defer refreshers.Done()
+			for j := 0; j < 50; j++ {
+				if err := client.RefreshToken(context.Background()); err != nil {
+					t.Errorf("RefreshToken: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	refreshers.Wait()
+	close(stop)
+	updater.Wait()
+
+	if total := atomic.LoadInt32(&seenA) + atomic.LoadInt32(&seenB); total != 200 {
+		t.Errorf("expected 200 refresh requests, got %d", total)
+	}
+}
