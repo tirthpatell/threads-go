@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -21,12 +23,14 @@ import (
 // and Client.EnableRateLimiting can swap it safely under a concurrent
 // request path without tearing. Readers must go through getRateLimiter().
 type HTTPClient struct {
-	client      *http.Client
-	logger      Logger
-	retryConfig *RetryConfig
-	rateLimiter atomic.Pointer[RateLimiter]
-	baseURL     string
-	userAgent   string
+	mu                  sync.RWMutex
+	client              *http.Client
+	logger              Logger
+	retryConfig         *RetryConfig
+	rateLimiter         atomic.Pointer[RateLimiter]
+	baseURL             string
+	userAgent           string
+	maxResponseBodySize int64
 }
 
 // RequestOptions holds options for HTTP requests
@@ -59,29 +63,105 @@ type RateLimitInfo struct {
 
 // NewHTTPClient creates a new HTTP client with the provided configuration
 func NewHTTPClient(config *Config, rateLimiter *RateLimiter) *HTTPClient {
-	httpClient := &http.Client{
-		Timeout: config.HTTPTimeout,
-	}
-
-	baseURL := config.BaseURL
-	if baseURL == "" {
-		baseURL = "https://graph.threads.net"
-	}
-
-	userAgent := config.UserAgent
-	if userAgent == "" {
-		userAgent = DefaultUserAgent
-	}
-
-	h := &HTTPClient{
-		client:      httpClient,
-		logger:      config.Logger,
-		retryConfig: config.RetryConfig,
-		baseURL:     baseURL,
-		userAgent:   userAgent,
-	}
+	h := &HTTPClient{}
+	h.updateConfig(config)
 	h.rateLimiter.Store(rateLimiter)
 	return h
+}
+
+func defaultRetryConfig() RetryConfig {
+	return RetryConfig{
+		MaxRetries:    3,
+		InitialDelay:  time.Second,
+		MaxDelay:      30 * time.Second,
+		BackoffFactor: 2,
+	}
+}
+
+func effectiveRetryConfig(config *RetryConfig) *RetryConfig {
+	if config != nil {
+		return config
+	}
+	retryConfig := defaultRetryConfig()
+	return &retryConfig
+}
+
+// updateConfig atomically applies configuration used by future requests.
+// Requests already in flight continue with their original snapshot.
+func (h *HTTPClient) updateConfig(config *Config) {
+	timeout := DefaultHTTPTimeout
+	baseURL := BaseAPIURL
+	userAgent := DefaultUserAgent
+	maxResponseBodySize := int64(DefaultMaxResponseBodySize)
+	var logger Logger
+	var retryConfig *RetryConfig
+
+	if config != nil {
+		if config.HTTPTimeout > 0 {
+			timeout = config.HTTPTimeout
+		}
+		if config.BaseURL != "" {
+			baseURL = config.BaseURL
+		}
+		if config.UserAgent != "" {
+			userAgent = config.UserAgent
+		}
+		if config.MaxResponseBodySize > 0 {
+			maxResponseBodySize = config.MaxResponseBodySize
+		}
+		logger = config.Logger
+		retryConfig = effectiveRetryConfig(config.RetryConfig)
+	} else {
+		retryConfig = effectiveRetryConfig(nil)
+	}
+
+	h.mu.Lock()
+	h.client = &http.Client{Timeout: timeout}
+	h.logger = logger
+	h.retryConfig = retryConfig
+	h.baseURL = strings.TrimRight(baseURL, "/")
+	h.userAgent = userAgent
+	h.maxResponseBodySize = maxResponseBodySize
+	h.mu.Unlock()
+}
+
+type httpConfigSnapshot struct {
+	client              *http.Client
+	logger              Logger
+	retryConfig         RetryConfig
+	baseURL             string
+	userAgent           string
+	maxResponseBodySize int64
+}
+
+func (h *HTTPClient) configSnapshot() httpConfigSnapshot {
+	h.mu.RLock()
+	snapshot := httpConfigSnapshot{
+		client:              h.client,
+		logger:              h.logger,
+		baseURL:             h.baseURL,
+		userAgent:           h.userAgent,
+		maxResponseBodySize: h.maxResponseBodySize,
+		retryConfig:         defaultRetryConfig(),
+	}
+	if h.retryConfig != nil {
+		snapshot.retryConfig = *h.retryConfig
+	}
+	h.mu.RUnlock()
+
+	if snapshot.client == nil {
+		snapshot.client = &http.Client{Timeout: DefaultHTTPTimeout}
+	}
+	if snapshot.baseURL == "" {
+		snapshot.baseURL = BaseAPIURL
+	}
+	if snapshot.userAgent == "" {
+		snapshot.userAgent = DefaultUserAgent
+	}
+	if snapshot.maxResponseBodySize <= 0 {
+		snapshot.maxResponseBodySize = DefaultMaxResponseBodySize
+	}
+	return snapshot
 }
 
 func (h *HTTPClient) getRateLimiter() *RateLimiter {
@@ -105,9 +185,10 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 		}
 	}
 
+	requestConfig := h.configSnapshot()
 	var lastErr error
-	maxRetries := h.retryConfig.MaxRetries
-	delay := h.retryConfig.InitialDelay
+	maxRetries := requestConfig.retryConfig.MaxRetries
+	delay := requestConfig.retryConfig.InitialDelay
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -119,13 +200,13 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 			}
 
 			// Exponential backoff
-			delay = time.Duration(float64(delay) * h.retryConfig.BackoffFactor)
-			if delay > h.retryConfig.MaxDelay {
-				delay = h.retryConfig.MaxDelay
+			delay = time.Duration(float64(delay) * requestConfig.retryConfig.BackoffFactor)
+			if delay > requestConfig.retryConfig.MaxDelay {
+				delay = requestConfig.retryConfig.MaxDelay
 			}
 		}
 
-		resp, err := h.executeRequest(opts, accessToken)
+		resp, err := h.executeRequest(opts, accessToken, requestConfig)
 		if err != nil {
 			lastErr = err
 
@@ -150,13 +231,17 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 }
 
 // executeRequest performs a single HTTP request
-func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string) (*Response, error) {
+func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	startTime := time.Now()
 
+	if err := validateBaseURL(requestConfig.baseURL); err != nil {
+		return nil, fmt.Errorf("invalid BaseURL: %w", err)
+	}
+
 	// Build URL
-	fullURL := h.baseURL + opts.Path
-	if len(opts.QueryParams) > 0 {
-		fullURL += "?" + opts.QueryParams.Encode()
+	fullURL, err := buildRequestURL(requestConfig.baseURL, opts.Path, opts.QueryParams)
+	if err != nil {
+		return nil, err
 	}
 
 	// Prepare request body
@@ -192,7 +277,7 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string) (*
 	}
 
 	// Set headers
-	req.Header.Set("User-Agent", h.userAgent)
+	req.Header.Set("User-Agent", requestConfig.userAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -209,21 +294,29 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string) (*
 	h.logRequest(req, opts.Body)
 
 	// Execute request
-	httpResp, err := h.client.Do(req)
+	httpResp, err := requestConfig.client.Do(req)
 	if err != nil {
 		return nil, h.wrapNetworkError(err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
-		if err != nil {
-			h.logger.Error("Failed to close response body", "error", err)
+		if err != nil && requestConfig.logger != nil {
+			requestConfig.logger.Error("Failed to close response body", "error", err)
 		}
 	}(httpResp.Body)
 
-	// Read response body
-	respBody, err := io.ReadAll(httpResp.Body)
+	// Read at most the configured limit plus one byte so oversized responses
+	// are rejected without allowing an untrusted server to exhaust memory.
+	readLimit := requestConfig.maxResponseBodySize
+	if readLimit < math.MaxInt64 {
+		readLimit++
+	}
+	respBody, err := io.ReadAll(io.LimitReader(httpResp.Body, readLimit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	if int64(len(respBody)) > requestConfig.maxResponseBodySize {
+		return nil, fmt.Errorf("%w: limit is %d bytes", ErrResponseTooLarge, requestConfig.maxResponseBodySize)
 	}
 
 	// Create response wrapper
@@ -245,6 +338,24 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string) (*
 	}
 
 	return resp, nil
+}
+
+func buildRequestURL(baseURL, path string, queryParams url.Values) (string, error) {
+	if path == "" || !strings.HasPrefix(path, "/") {
+		return "", fmt.Errorf("request path must start with /")
+	}
+
+	pathURL, err := url.Parse(path)
+	if err != nil || pathURL.IsAbs() || pathURL.Host != "" || pathURL.RawQuery != "" || pathURL.ForceQuery || pathURL.Fragment != "" {
+		return "", fmt.Errorf("request path must not contain an origin, query, or fragment")
+	}
+
+	requestURL, err := url.Parse(strings.TrimRight(baseURL, "/") + pathURL.EscapedPath())
+	if err != nil {
+		return "", fmt.Errorf("failed to build request URL: %w", err)
+	}
+	requestURL.RawQuery = queryParams.Encode()
+	return requestURL.String(), nil
 }
 
 // parseRateLimitHeaders extracts rate limit information from response headers
@@ -400,6 +511,8 @@ func isNonRetryablePermanentErrorCode(code int) bool {
 // The original error is preserved as the Cause, so errors.Is/errors.As
 // can inspect it (e.g., to detect context.Canceled).
 func (h *HTTPClient) wrapNetworkError(err error) error {
+	err = sanitizeNetworkError(err)
+
 	// Check for timeout errors
 	if timeoutErr, ok := err.(interface{ Timeout() bool }); ok && timeoutErr.Timeout() {
 		return NewNetworkErrorWithCause(0, "Request timeout", err.Error(), true, err)
@@ -412,6 +525,24 @@ func (h *HTTPClient) wrapNetworkError(err error) error {
 
 	// Default to permanent network error
 	return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
+}
+
+// sanitizeNetworkError preserves the error chain while redacting credentials
+// from URLs embedded by net/http in *url.Error values.
+func sanitizeNetworkError(err error) error {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		return err
+	}
+
+	safeErr := *urlErr
+	u, parseErr := url.Parse(urlErr.URL)
+	if parseErr != nil {
+		safeErr.URL = "[REDACTED]"
+	} else {
+		safeErr.URL = sanitizeURL(u)
+	}
+	return &safeErr
 }
 
 // isRetryableError determines if an error should trigger a retry
@@ -458,7 +589,8 @@ func (h *HTTPClient) isRetryableError(err error) bool {
 
 // logRequest logs the outgoing HTTP request
 func (h *HTTPClient) logRequest(req *http.Request, body interface{}) {
-	if h.logger == nil {
+	logger := h.configSnapshot().logger
+	if logger == nil {
 		return
 	}
 
@@ -477,12 +609,13 @@ func (h *HTTPClient) logRequest(req *http.Request, body interface{}) {
 		}
 	}
 
-	h.logger.Debug("HTTP request", fields...)
+	logger.Debug("HTTP request", fields...)
 }
 
 // logResponse logs the HTTP response
 func (h *HTTPClient) logResponse(resp *Response) {
-	if h.logger == nil {
+	logger := h.configSnapshot().logger
+	if logger == nil {
 		return
 	}
 
@@ -501,19 +634,20 @@ func (h *HTTPClient) logResponse(resp *Response) {
 
 	if resp.StatusCode >= 400 {
 		fields = append(fields, "response_body", string(resp.Body))
-		h.logger.Error("HTTP response error", fields...)
+		logger.Error("HTTP response error", fields...)
 	} else {
-		h.logger.Debug("HTTP response", fields...)
+		logger.Debug("HTTP response", fields...)
 	}
 }
 
 // logRetry logs retry attempts
 func (h *HTTPClient) logRetry(attempt, maxRetries int, err error) {
-	if h.logger == nil {
+	logger := h.configSnapshot().logger
+	if logger == nil {
 		return
 	}
 
-	h.logger.Warn("HTTP request retry",
+	logger.Warn("HTTP request retry",
 		"attempt", attempt+1,
 		"max_retries", maxRetries+1,
 		"error", err.Error(),
@@ -555,7 +689,12 @@ func sanitizeURL(u *url.URL) string {
 	if u.RawQuery == "" {
 		return u.String()
 	}
-	q := u.Query()
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		clone := *u
+		clone.RawQuery = "[REDACTED]"
+		return clone.String()
+	}
 	redacted := false
 	for name := range q {
 		if _, ok := sensitiveQueryParams[strings.ToLower(name)]; ok {

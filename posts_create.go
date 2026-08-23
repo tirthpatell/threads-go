@@ -452,8 +452,8 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 
 	// Get user ID from token info
 	userID := c.getUserID()
-	if userID == "" {
-		return nil, NewAuthenticationError(401, "User ID not available", "Cannot determine user ID from token")
+	if !UserID(userID).Valid() {
+		return nil, NewAuthenticationError(401, "Invalid user ID", "Token contains an invalid user ID")
 	}
 
 	// Make API call to create and publish post directly
@@ -486,8 +486,8 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 func (c *Client) createContainer(_ context.Context, params url.Values) (string, error) {
 	// Get user ID from token info
 	userID := c.getUserID()
-	if userID == "" {
-		return "", NewAuthenticationError(401, "User ID not available", "Cannot determine user ID from token")
+	if !UserID(userID).Valid() {
+		return "", NewAuthenticationError(401, "Invalid user ID", "Token contains an invalid user ID")
 	}
 
 	// Make API call to create container
@@ -525,8 +525,8 @@ func (c *Client) publishContainer(ctx context.Context, containerID string) (*Pos
 
 	// Get user ID from token info
 	userID := c.getUserID()
-	if userID == "" {
-		return nil, NewAuthenticationError(401, "User ID not available", "Cannot determine user ID from token")
+	if !UserID(userID).Valid() {
+		return nil, NewAuthenticationError(401, "Invalid user ID", "Token contains an invalid user ID")
 	}
 
 	// Build request parameters

@@ -110,6 +110,10 @@ type Config struct {
 	// If nil, default retry configuration will be used.
 	RetryConfig *RetryConfig
 
+	// MaxResponseBodySize is the maximum number of response-body bytes retained
+	// in memory (optional). Default: 16 MiB.
+	MaxResponseBodySize int64
+
 	// Logger provides structured logging for debugging and monitoring (optional).
 	// If nil, no logging will be performed. Implement the Logger interface
 	// to provide custom logging behavior.
@@ -254,9 +258,10 @@ func NewConfig() *Config {
 			MaxDelay:      30 * time.Second,
 			BackoffFactor: 2.0,
 		},
-		BaseURL:   "https://graph.threads.net",
-		UserAgent: DefaultUserAgent,
-		Debug:     false,
+		MaxResponseBodySize: DefaultMaxResponseBodySize,
+		BaseURL:             "https://graph.threads.net",
+		UserAgent:           DefaultUserAgent,
+		Debug:               false,
 	}
 }
 
@@ -355,9 +360,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("RedirectURI is required")
 	}
 
-	// Validate redirect URI format
-	if !strings.HasPrefix(c.RedirectURI, "http://") && !strings.HasPrefix(c.RedirectURI, "https://") {
-		return fmt.Errorf("RedirectURI must be a valid HTTP or HTTPS URL")
+	if err := validateRedirectURI(c.RedirectURI); err != nil {
+		return err
 	}
 
 	if len(c.Scopes) == 0 {
@@ -388,6 +392,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("HTTPTimeout must be positive")
 	}
 
+	if c.MaxResponseBodySize < 0 {
+		return fmt.Errorf("MaxResponseBodySize must not be negative")
+	}
+
 	if c.RetryConfig != nil {
 		if c.RetryConfig.MaxRetries < 0 {
 			return fmt.Errorf("RetryConfig.MaxRetries must be non-negative")
@@ -414,8 +422,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("BaseURL is required")
 	}
 
-	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
-		return fmt.Errorf("BaseURL must be a valid HTTP or HTTPS URL")
+	if err := validateBaseURL(c.BaseURL); err != nil {
+		return err
 	}
 
 	return nil
@@ -428,7 +436,11 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.HTTPTimeout == 0 {
-		c.HTTPTimeout = 30 * time.Second
+		c.HTTPTimeout = DefaultHTTPTimeout
+	}
+
+	if c.MaxResponseBodySize == 0 {
+		c.MaxResponseBodySize = DefaultMaxResponseBodySize
 	}
 
 	if c.RetryConfig == nil {
@@ -702,29 +714,39 @@ func (c *Client) ClearToken() error {
 
 // GetConfig returns a copy of the client configuration
 func (c *Client) GetConfig() *Config {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	// Return a copy to prevent external modification
 	configCopy := *c.config
+	configCopy.Scopes = append([]string(nil), c.config.Scopes...)
+	if c.config.RetryConfig != nil {
+		retryConfigCopy := *c.config.RetryConfig
+		configCopy.RetryConfig = &retryConfigCopy
+	}
 	return &configCopy
 }
 
-// UpdateConfig updates the client configuration with validation
-// Note: This does not affect already established connections
+// UpdateConfig updates the client configuration with validation. Future HTTP
+// requests use the new transport settings; requests already in flight retain
+// the configuration snapshot with which they started.
 func (c *Client) UpdateConfig(newConfig *Config) error {
 	if newConfig == nil {
 		return fmt.Errorf("config cannot be nil")
 	}
+
+	// Set optional defaults before validation, matching NewClient behavior.
+	newConfig.SetDefaults()
 
 	// Validate the new configuration
 	if err := newConfig.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	// Set defaults for any missing configuration
-	newConfig.SetDefaults()
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.httpClient.updateConfig(newConfig)
 	c.config = newConfig
 	c.baseURL = newConfig.BaseURL
 

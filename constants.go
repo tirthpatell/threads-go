@@ -40,8 +40,9 @@ const (
 	Version = "1.10.0"
 
 	// HTTP client defaults
-	DefaultHTTPTimeout = 30 * time.Second // Default HTTP request timeout
-	DefaultUserAgent   = "threads-go/" + Version
+	DefaultHTTPTimeout         = 30 * time.Second // Default HTTP request timeout
+	DefaultMaxResponseBodySize = 16 << 20         // Default maximum response body size (16 MiB)
+	DefaultUserAgent           = "threads-go/" + Version
 )
 
 // API Endpoints

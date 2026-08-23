@@ -2,10 +2,55 @@ package threads
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 )
+
+func parseHTTPURL(rawURL, field string) (*url.URL, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || !u.IsAbs() || u.Host == "" || u.Opaque != "" {
+		return nil, fmt.Errorf("%s must be a valid absolute HTTP or HTTPS URL", field)
+	}
+	if u.User != nil {
+		return nil, fmt.Errorf("%s must not contain user information", field)
+	}
+	if u.Fragment != "" {
+		return nil, fmt.Errorf("%s must not contain a fragment", field)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("%s must be a valid HTTP or HTTPS URL", field)
+	}
+	return u, nil
+}
+
+func validateRedirectURI(rawURL string) error {
+	_, err := parseHTTPURL(rawURL, "RedirectURI")
+	return err
+}
+
+func validateBaseURL(rawURL string) error {
+	u, err := parseHTTPURL(rawURL, "BaseURL")
+	if err != nil {
+		return err
+	}
+	if u.RawQuery != "" {
+		return fmt.Errorf("BaseURL must not contain a query string")
+	}
+	if u.Scheme == "https" {
+		return nil
+	}
+
+	hostname := strings.ToLower(u.Hostname())
+	ip := net.ParseIP(hostname)
+	if hostname == "localhost" || (ip != nil && ip.IsLoopback()) {
+		return nil
+	}
+
+	return fmt.Errorf("BaseURL must use HTTPS unless it targets a loopback host")
+}
 
 // Validator provides common validation methods
 type Validator struct{}
@@ -512,10 +557,7 @@ func (cv *ConfigValidator) validateRequiredFields(c *Config) error {
 
 // validateRedirectURI validates the redirect URI format
 func (cv *ConfigValidator) validateRedirectURI(c *Config) error {
-	if !strings.HasPrefix(c.RedirectURI, "http://") && !strings.HasPrefix(c.RedirectURI, "https://") {
-		return fmt.Errorf("RedirectURI must be a valid HTTP or HTTPS URL")
-	}
-	return nil
+	return validateRedirectURI(c.RedirectURI)
 }
 
 // validateScopes validates the configured scopes
@@ -552,15 +594,15 @@ func (cv *ConfigValidator) validateHTTPSettings(c *Config) error {
 		return fmt.Errorf("HTTPTimeout must be positive")
 	}
 
+	if c.MaxResponseBodySize < 0 {
+		return fmt.Errorf("MaxResponseBodySize must not be negative")
+	}
+
 	if c.BaseURL == "" {
 		return fmt.Errorf("BaseURL is required")
 	}
 
-	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
-		return fmt.Errorf("BaseURL must be a valid HTTP or HTTPS URL")
-	}
-
-	return nil
+	return validateBaseURL(c.BaseURL)
 }
 
 // validateRetryConfig validates retry configuration

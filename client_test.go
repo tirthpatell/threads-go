@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -29,6 +30,10 @@ func TestNewConfig(t *testing.T) {
 
 	if config.UserAgent != DefaultUserAgent {
 		t.Errorf("Expected UserAgent to be %s, got %s", DefaultUserAgent, config.UserAgent)
+	}
+
+	if config.MaxResponseBodySize != DefaultMaxResponseBodySize {
+		t.Errorf("Expected MaxResponseBodySize to be %d, got %d", DefaultMaxResponseBodySize, config.MaxResponseBodySize)
 	}
 
 	// Check that scopes are set
@@ -1427,6 +1432,85 @@ func TestUpdateConfig(t *testing.T) {
 			t.Errorf("Expected baseURL to be updated, got %q", client.baseURL)
 		}
 	})
+}
+
+func TestUpdateConfigAppliesToFutureHTTPRequests(t *testing.T) {
+	var oldRequests atomic.Int32
+	client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		oldRequests.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"origin":"old"}`))
+	}))
+
+	var newRequests atomic.Int32
+	newServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		newRequests.Add(1)
+		if got := r.Header.Get("Authorization"); got != "Bearer test-access-token" {
+			t.Errorf("expected authorization header on new origin, got %q", got)
+		}
+		if got := r.Header.Get("User-Agent"); got != "updated-agent/1.0" {
+			t.Errorf("expected updated user agent, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"origin":"new"}`))
+	}))
+	t.Cleanup(newServer.Close)
+
+	if _, err := client.TestAPICall("GET", "/test", nil); err != nil {
+		t.Fatalf("initial request: %v", err)
+	}
+
+	newConfig := client.GetConfig()
+	newConfig.BaseURL = newServer.URL
+	newConfig.UserAgent = "updated-agent/1.0"
+	newConfig.HTTPTimeout = 2 * time.Second
+	newConfig.MaxResponseBodySize = 1024
+	if err := client.UpdateConfig(newConfig); err != nil {
+		t.Fatalf("UpdateConfig: %v", err)
+	}
+
+	if _, err := client.TestAPICall("GET", "/test", nil); err != nil {
+		t.Fatalf("request after UpdateConfig: %v", err)
+	}
+
+	if got := oldRequests.Load(); got != 1 {
+		t.Fatalf("expected old origin to receive one request, got %d", got)
+	}
+	if got := newRequests.Load(); got != 1 {
+		t.Fatalf("expected new origin to receive one request, got %d", got)
+	}
+	snapshot := client.httpClient.configSnapshot()
+	if snapshot.client.Timeout != 2*time.Second || snapshot.maxResponseBodySize != 1024 {
+		t.Fatalf("updated HTTP settings were not applied: timeout=%v max_body=%d", snapshot.client.Timeout, snapshot.maxResponseBodySize)
+	}
+}
+
+func TestConfigRejectsCleartextRemoteBaseURL(t *testing.T) {
+	config := NewConfig()
+	config.ClientID = "id"
+	config.ClientSecret = "secret"
+	config.RedirectURI = "https://example.com/callback"
+
+	config.BaseURL = "http://api.example.com"
+	if err := config.Validate(); err == nil {
+		t.Fatal("expected remote cleartext BaseURL to be rejected")
+	}
+
+	for _, loopbackURL := range []string{
+		"http://localhost:8080",
+		"http://127.0.0.1:8080",
+		"http://[::1]:8080",
+	} {
+		config.BaseURL = loopbackURL
+		if err := config.Validate(); err != nil {
+			t.Errorf("expected loopback BaseURL %q to be allowed: %v", loopbackURL, err)
+		}
+	}
+
+	config.BaseURL = "https://api.example.com"
+	if err := config.Validate(); err != nil {
+		t.Fatalf("expected HTTPS BaseURL to remain valid: %v", err)
+	}
 }
 
 func TestClone(t *testing.T) {

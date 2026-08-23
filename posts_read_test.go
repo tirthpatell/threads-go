@@ -3,8 +3,47 @@ package threads
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
 	"testing"
+	"time"
 )
+
+func TestPathResourceIDsCannotRetargetAuthenticatedRequests(t *testing.T) {
+	var requests atomic.Int32
+	client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+
+	_, err := client.GetUserPostsWithOptions(
+		context.Background(),
+		UserID("victim/pending_replies?fields=id#ignored"),
+		nil,
+	)
+	if err == nil || !IsValidationError(err) {
+		t.Fatalf("expected unsafe caller-supplied ID to fail validation, got %v", err)
+	}
+
+	err = client.SetTokenInfo(&TokenInfo{
+		AccessToken: "test-access-token",
+		TokenType:   TokenTypeBearer,
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
+		UserID:      "victim/threads_publish?creation_id=attacker",
+		CreatedAt:   time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("SetTokenInfo: %v", err)
+	}
+	_, err = client.GetPublishingLimits(context.Background())
+	if err == nil || !IsAuthenticationError(err) {
+		t.Fatalf("expected unsafe token-derived ID to fail authentication, got %v", err)
+	}
+
+	if got := requests.Load(); got != 0 {
+		t.Fatalf("expected no authenticated request for unsafe IDs, got %d", got)
+	}
+}
 
 func TestGetPost_Success(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{
