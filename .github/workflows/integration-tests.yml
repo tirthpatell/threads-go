@@ -1,16 +1,14 @@
 name: Integration Tests
 
 on:
-  # Run on pushes to main and PRs
+  # Run after merge to main
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  
+
   # Run weekly on Sundays at 2 AM UTC
   schedule:
     - cron: '0 2 * * 0'
-  
+
   # Allow manual triggering
   workflow_dispatch:
 
