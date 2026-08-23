@@ -18,9 +18,16 @@ import (
 // enough that no real post on the account contains it.
 const testPostMarker = "[threads-go-integration]"
 
-// sweepLookback bounds how far back the leftover sweep looks. Test posts are
-// only ever minutes old; anything older is not ours to touch.
-const sweepLookback = 24 * time.Hour
+// sweepLookback bounds how far back the leftover sweep looks. It must comfortably
+// exceed the interval between runs: residue from a killed run is only removed by
+// a later sweep, so a window shorter than the schedule would let a leftover post
+// age out before the next run ever saw it. The workflow runs weekly, so 30 days
+// gives roughly four chances to catch any given leftover.
+const sweepLookback = 30 * 24 * time.Hour
+
+// sweepMaxPages bounds the work a sweep will do, so a large account cannot turn
+// suite startup into an unbounded pagination walk.
+const sweepMaxPages = 20
 
 // markTestPost appends the marker that makes a published post identifiable as
 // test residue. The marker is appended rather than prefixed so that text-entity
@@ -52,23 +59,43 @@ func trackPost(t *testing.T, client *threads.Client, postID string) {
 // testPostMarker. t.Cleanup cannot help when a run is killed outright — a
 // cancelled CI job, a panic, SIGKILL — so the suite sweeps before it starts.
 func sweepLeftoverTestPosts(client *threads.Client) (deleted int, err error) {
+	ctx := context.Background()
 	cutoff := time.Now().Add(-sweepLookback)
 
-	posts, err := client.GetUserPostsWithOptions(context.Background(), threads.ConvertToUserID(testUserID), &threads.PostsOptions{
+	iterator := threads.NewPostIterator(client, threads.ConvertToUserID(testUserID), &threads.PostsOptions{
 		Limit: 100,
 		Since: cutoff.Unix(),
 	})
-	if err != nil {
-		return 0, fmt.Errorf("listing posts for sweep: %w", err)
+
+	// Collect first, delete after. A single page only covers the most recent
+	// posts and leftovers can sit behind newer real ones, so every page in the
+	// window has to be walked — and deleting while paging would shift the
+	// cursor underneath the walk and skip entries.
+	var leftovers []string
+	for page := 0; iterator.HasNext() && page < sweepMaxPages; page++ {
+		posts, err := iterator.Next(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("listing posts for sweep: %w", err)
+		}
+		if posts == nil {
+			break
+		}
+
+		for _, post := range posts.Data {
+			if strings.Contains(post.Text, testPostMarker) {
+				leftovers = append(leftovers, post.ID)
+			}
+		}
 	}
 
-	for _, post := range posts.Data {
-		if !strings.Contains(post.Text, testPostMarker) {
-			continue
-		}
-		if _, err := client.DeletePost(context.Background(), threads.ConvertToPostID(post.ID)); err != nil {
+	if iterator.HasNext() {
+		fmt.Fprintf(os.Stderr, "sweep: stopped after %d pages; re-run to continue\n", sweepMaxPages)
+	}
+
+	for _, postID := range leftovers {
+		if _, err := client.DeletePost(ctx, threads.ConvertToPostID(postID)); err != nil {
 			// Keep going: one undeletable leftover must not block the run.
-			fmt.Fprintf(os.Stderr, "sweep: failed to delete leftover post %s: %v\n", post.ID, err)
+			fmt.Fprintf(os.Stderr, "sweep: failed to delete leftover post %s: %v\n", postID, err)
 			continue
 		}
 		deleted++
