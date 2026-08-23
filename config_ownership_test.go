@@ -370,29 +370,27 @@ func TestCredentialsAndDestinationStayPaired(t *testing.T) {
 	}
 }
 
-func TestSanitizeHeadersRedactsCredentialCarryingHeaders(t *testing.T) {
+func TestSanitizeHeadersRedactsAllValues(t *testing.T) {
 	h := &HTTPClient{}
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer super-secret")
 	headers.Set("Cookie", "session=super-secret")
-	headers.Set("Proxy-Authorization", "Basic super-secret")
-	headers.Set("X-Api-Key", "super-secret")
 	headers.Set("X-Access-Token", "super-secret")
-	headers.Set("X-App-Secret", "super-secret")
+	headers.Set("X-Correlation-Data", "super-secret")
 	headers.Set("Content-Type", "application/json")
-	headers.Set("User-Agent", "threads-go/test")
 
 	sanitized := h.sanitizeHeaders(headers)
+	if len(sanitized) != len(headers) {
+		t.Fatalf("expected %d header names, got %d", len(headers), len(sanitized))
+	}
 	for name, value := range sanitized {
-		if strings.Contains(value, "super-secret") {
-			t.Errorf("header %q leaked its value: %s", name, value)
+		if value != "[REDACTED]" {
+			t.Errorf("header %q was logged as %q, want [REDACTED]", name, value)
 		}
 	}
-	if sanitized["Content-Type"] != "application/json" {
-		t.Errorf("Content-Type should not be redacted, got %q", sanitized["Content-Type"])
-	}
-	if sanitized["User-Agent"] != "threads-go/test" {
-		t.Errorf("User-Agent should not be redacted, got %q", sanitized["User-Agent"])
+	// Names must survive: they are what makes the log useful.
+	if _, ok := sanitized["Content-Type"]; !ok {
+		t.Error("expected Content-Type name to be retained")
 	}
 }
 
