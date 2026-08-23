@@ -15,14 +15,6 @@ on:
 permissions:
   contents: read
 
-# These tests publish to and delete from a single real Threads account, and the
-# suite sweeps leftover test posts on start. Two concurrent runs would delete
-# each other's in-flight posts, so runs queue instead of overlapping. Never set
-# cancel-in-progress: a killed run is exactly what leaves posts behind.
-concurrency:
-  group: integration-tests
-  cancel-in-progress: false
-
 jobs:
   integration-tests:
     runs-on: ubuntu-latest

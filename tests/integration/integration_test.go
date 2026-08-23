@@ -114,15 +114,9 @@ func createTestClient(t *testing.T) *threads.Client {
 	return client
 }
 
-// hasCredentials reports whether the environment carries enough configuration
-// to talk to the live API.
-func hasCredentials() bool {
-	return testAccessToken != "" && testUserID != ""
-}
-
 // skipIfNoCredentials skips the test if credentials are not available
 func skipIfNoCredentials(t *testing.T) {
-	if !hasCredentials() {
+	if testAccessToken == "" || testUserID == "" {
 		t.Skip("Skipping integration test: no credentials available")
 	}
 }
@@ -213,7 +207,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 	t.Run("CreateAndDeleteTextPost", func(t *testing.T) {
 		// Create a test post using public API
 		content := &threads.TextPostContent{
-			Text:         markTestPost(fmt.Sprintf("CI Integration test post created at %s", time.Now().Format(time.RFC3339))),
+			Text:         fmt.Sprintf("CI Integration test post created at %s", time.Now().Format(time.RFC3339)),
 			ReplyControl: threads.ReplyControlEveryone,
 		}
 
@@ -249,7 +243,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		content := &threads.ImagePostContent{
-			Text:     markTestPost(fmt.Sprintf("CI Integration test image post created at %s", time.Now().Format(time.RFC3339))),
+			Text:     fmt.Sprintf("CI Integration test image post created at %s", time.Now().Format(time.RFC3339)),
 			ImageURL: testImageURL1,
 			AltText:  "Test image for CI integration testing",
 		}
@@ -278,7 +272,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 		}
 
 		content := &threads.VideoPostContent{
-			Text:     markTestPost(fmt.Sprintf("CI Integration test video post created at %s", time.Now().Format(time.RFC3339))),
+			Text:     fmt.Sprintf("CI Integration test video post created at %s", time.Now().Format(time.RFC3339)),
 			VideoURL: testVideoURL,
 			AltText:  "Test video for CI integration testing",
 		}
@@ -327,7 +321,7 @@ func TestIntegration_PostOperations(t *testing.T) {
 
 		// Create carousel post
 		content := &threads.CarouselPostContent{
-			Text:     markTestPost(fmt.Sprintf("CI Integration test carousel post created at %s", time.Now().Format(time.RFC3339))),
+			Text:     fmt.Sprintf("CI Integration test carousel post created at %s", time.Now().Format(time.RFC3339)),
 			Children: []string{string(container1), string(container2)},
 		}
 
@@ -441,7 +435,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 	t.Run("TextPostWithSpoilers", func(t *testing.T) {
 		// Test text spoilers using text_entities
 		content := &threads.TextPostContent{
-			Text: markTestPost("Spoiler alert: Darth Vader is Luke's father!"),
+			Text: "Spoiler alert: Darth Vader is Luke's father!",
 			TextEntities: []threads.TextEntity{
 				{
 					EntityType: "SPOILER",
@@ -468,7 +462,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 	t.Run("TextPostWithMultipleSpoilers", func(t *testing.T) {
 		// Test multiple text spoilers
 		content := &threads.TextPostContent{
-			Text: markTestPost("Two spoilers: Han dies and Rey is a Palpatine!"),
+			Text: "Two spoilers: Han dies and Rey is a Palpatine!",
 			TextEntities: []threads.TextEntity{
 				{
 					EntityType: "SPOILER",
@@ -500,7 +494,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Test media spoiler with image
 		content := &threads.ImagePostContent{
-			Text:           markTestPost(fmt.Sprintf("CI test image spoiler created at %s", time.Now().Format(time.RFC3339))),
+			Text:           fmt.Sprintf("CI test image spoiler created at %s", time.Now().Format(time.RFC3339)),
 			ImageURL:       testImageURL1,
 			AltText:        "Spoiler image",
 			IsSpoilerMedia: true, // Mark the image as a spoiler
@@ -523,7 +517,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Test both text and media spoilers
 		content := &threads.ImagePostContent{
-			Text:     markTestPost("Spoiler: This image reveals the ending!"),
+			Text:     "Spoiler: This image reveals the ending!",
 			ImageURL: testImageURL1,
 			TextEntities: []threads.TextEntity{
 				{
@@ -548,7 +542,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 	t.Run("TextPostWithTextAttachment", func(t *testing.T) {
 		// Test text attachment with styling
 		content := &threads.TextPostContent{
-			Text: markTestPost(fmt.Sprintf("CI test post with text attachment at %s", time.Now().Format(time.RFC3339))),
+			Text: fmt.Sprintf("CI test post with text attachment at %s", time.Now().Format(time.RFC3339)),
 			TextAttachment: &threads.TextAttachment{
 				Plaintext: "This is a long-form text attachment with up to 10,000 characters. " +
 					"It supports rich formatting and allows you to share detailed content beyond the 500 character limit. " +
@@ -581,7 +575,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 	t.Run("TextAttachmentWithLink", func(t *testing.T) {
 		// Test text attachment with link
 		content := &threads.TextPostContent{
-			Text: markTestPost("Check out my detailed post with a link!"),
+			Text: "Check out my detailed post with a link!",
 			TextAttachment: &threads.TextAttachment{
 				Plaintext:         "Here's a detailed explanation with additional information that couldn't fit in the main post. This text attachment includes a link for more details.",
 				LinkAttachmentURL: "https://example.com/more-info",
@@ -620,7 +614,7 @@ func TestIntegration_SpoilersAndTextAttachments(t *testing.T) {
 
 		// Create carousel with all media marked as spoilers
 		content := &threads.CarouselPostContent{
-			Text:           markTestPost(fmt.Sprintf("CI test carousel with spoilers at %s", time.Now().Format(time.RFC3339))),
+			Text:           fmt.Sprintf("CI test carousel with spoilers at %s", time.Now().Format(time.RFC3339)),
 			Children:       []string{string(container1), string(container2)},
 			IsSpoilerMedia: true, // Marks ALL carousel media as spoilers
 		}
@@ -936,7 +930,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 
 	t.Run("CreatePostWithReplyApprovals", func(t *testing.T) {
 		content := &threads.TextPostContent{
-			Text:                 markTestPost(fmt.Sprintf("CI test post with reply approvals at %s", time.Now().Format(time.RFC3339))),
+			Text:                 fmt.Sprintf("CI test post with reply approvals at %s", time.Now().Format(time.RFC3339)),
 			EnableReplyApprovals: true,
 		}
 
@@ -980,7 +974,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 		}
 
 		content := &threads.ImagePostContent{
-			Text:                 markTestPost(fmt.Sprintf("CI test image post with reply approvals at %s", time.Now().Format(time.RFC3339))),
+			Text:                 fmt.Sprintf("CI test image post with reply approvals at %s", time.Now().Format(time.RFC3339)),
 			ImageURL:             testImageURL1,
 			EnableReplyApprovals: true,
 		}
@@ -997,7 +991,7 @@ func TestIntegration_ReplyApprovals(t *testing.T) {
 
 	t.Run("GetPendingRepliesWithIgnoredFilter", func(t *testing.T) {
 		content := &threads.TextPostContent{
-			Text:                 markTestPost(fmt.Sprintf("CI test pending replies ignored filter at %s", time.Now().Format(time.RFC3339))),
+			Text:                 fmt.Sprintf("CI test pending replies ignored filter at %s", time.Now().Format(time.RFC3339)),
 			EnableReplyApprovals: true,
 		}
 
@@ -1046,7 +1040,7 @@ func TestIntegration_ReplyApprovalsValidation(t *testing.T) {
 	t.Run("InvalidApprovalStatus", func(t *testing.T) {
 		// Create a post first to have a valid post ID for pending replies
 		content := &threads.TextPostContent{
-			Text:                 markTestPost(fmt.Sprintf("CI test invalid approval status at %s", time.Now().Format(time.RFC3339))),
+			Text:                 fmt.Sprintf("CI test invalid approval status at %s", time.Now().Format(time.RFC3339)),
 			EnableReplyApprovals: true,
 		}
 
