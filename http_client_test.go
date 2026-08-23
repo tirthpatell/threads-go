@@ -517,28 +517,28 @@ func TestLogRequest_WithLogger(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 	// Should not panic
-	httpClient.logRequest(req, nil)
+	httpClient.logRequest(httpClient.logger, req, nil)
 }
 
 func TestLogRequest_WithJSONBody(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	req, _ := http.NewRequest("POST", "http://example.com/test", nil)
 	req.Header.Set("Content-Type", "application/json")
-	httpClient.logRequest(req, map[string]string{"key": "value"})
+	httpClient.logRequest(httpClient.logger, req, map[string]string{"key": "value"})
 }
 
 func TestLogRequest_WithNonJSONBody(t *testing.T) {
 	httpClient := &HTTPClient{logger: &noopLogger{}}
 	req, _ := http.NewRequest("POST", "http://example.com/test", nil)
 	req.Header.Set("Content-Type", "text/plain")
-	httpClient.logRequest(req, "hello")
+	httpClient.logRequest(httpClient.logger, req, "hello")
 }
 
 func TestLogRequest_NilLogger(t *testing.T) {
 	httpClient := &HTTPClient{logger: nil}
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 	// Should not panic
-	httpClient.logRequest(req, nil)
+	httpClient.logRequest(httpClient.logger, req, nil)
 }
 
 func TestHTTPClient_ParseRetryAfterHeader(t *testing.T) {

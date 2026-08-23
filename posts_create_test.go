@@ -258,7 +258,7 @@ func TestGetContainerStatus_InvalidID(t *testing.T) {
 
 func TestGetContainerStatus_APIError(t *testing.T) {
 	client := testClient(t, jsonHandler(500, `{"error":{"message":"Server error","type":"OAuthException","code":2}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetContainerStatus(context.Background(), ConvertToContainerID("container_1"))
 	if err == nil {
@@ -409,7 +409,7 @@ func TestCreateCarouselPost_ContainerCreateError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateCarouselPost(context.Background(), &CarouselPostContent{
 		Text:     "Carousel",
@@ -814,7 +814,7 @@ func TestCreateImagePost_ContainerCreateError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateImagePost(context.Background(), &ImagePostContent{
 		ImageURL: "https://example.com/img.jpg",
@@ -854,7 +854,7 @@ func TestCreateVideoPost_ContainerCreateError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateVideoPost(context.Background(), &VideoPostContent{
 		VideoURL: "https://example.com/vid.mp4",
@@ -890,7 +890,7 @@ func TestRepostPost_APIError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.RepostPost(context.Background(), ConvertToPostID("original_post"))
 	if err == nil {
@@ -941,7 +941,7 @@ func TestCreateTextPost_ContainerCreateError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateTextPost(context.Background(), &TextPostContent{
 		Text: "Hello",
@@ -988,7 +988,7 @@ func TestCreateTextPost_PublishError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateTextPost(context.Background(), &TextPostContent{
 		Text: "Hello",
@@ -1037,7 +1037,7 @@ func TestCreateAndPublishTextPostDirectly_APIError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.CreateTextPost(context.Background(), &TextPostContent{
 		Text:            "Hello",
@@ -1096,7 +1096,7 @@ func TestCreateContainer_APIError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.createContainer(context.Background(), nil)
 	if err == nil {
@@ -1157,7 +1157,7 @@ func TestPublishContainer_APIError(t *testing.T) {
 	}
 
 	client := testClient(t, http.HandlerFunc(handler))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.publishContainer(context.Background(), "container_1")
 	if err == nil {

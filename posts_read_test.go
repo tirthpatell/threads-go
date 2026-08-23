@@ -96,7 +96,7 @@ func TestGetPost_NotFound(t *testing.T) {
 
 func TestGetPost_ServerError(t *testing.T) {
 	client := testClient(t, jsonHandler(500, `{"error":{"message":"Internal error","type":"OAuthException","code":2}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetPost(context.Background(), ConvertToPostID("123"))
 	if err == nil {
@@ -299,7 +299,7 @@ func TestGetUserMentions_WithSinceUntil(t *testing.T) {
 
 func TestGetUserMentions_NotFound(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {
@@ -309,7 +309,7 @@ func TestGetUserMentions_NotFound(t *testing.T) {
 
 func TestGetUserMentions_Forbidden(t *testing.T) {
 	client := testClient(t, jsonHandler(403, `{"error":{"message":"access denied","type":"OAuthException","code":200}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {
@@ -322,7 +322,7 @@ func TestGetUserMentions_Forbidden(t *testing.T) {
 
 func TestGetUserMentions_ServerError(t *testing.T) {
 	client := testClient(t, jsonHandler(500, `{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserMentions(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {
@@ -397,7 +397,7 @@ func TestGetUserGhostPosts_WithPagination(t *testing.T) {
 
 func TestGetUserGhostPosts_NotFound(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserGhostPosts(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {
@@ -407,7 +407,7 @@ func TestGetUserGhostPosts_NotFound(t *testing.T) {
 
 func TestGetUserGhostPosts_ServerError(t *testing.T) {
 	client := testClient(t, jsonHandler(500, `{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserGhostPosts(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {
@@ -445,7 +445,7 @@ func TestGetPublishingLimits_EmptyUserID(t *testing.T) {
 
 func TestGetPublishingLimits_APIError(t *testing.T) {
 	client := testClient(t, jsonHandler(500, `{"error":{"message":"internal error","type":"OAuthException","code":2}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetPublishingLimits(context.Background())
 	if err == nil {
@@ -533,7 +533,7 @@ func TestGetUserPostsWithOptions_WithTimeFilters(t *testing.T) {
 
 func TestGetUserPostsWithOptions_NotFound(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserPostsWithOptions(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {
@@ -543,7 +543,7 @@ func TestGetUserPostsWithOptions_NotFound(t *testing.T) {
 
 func TestGetUserPostsWithOptions_Forbidden(t *testing.T) {
 	client := testClient(t, jsonHandler(403, `{"error":{"message":"access denied","type":"OAuthException","code":200}}`))
-	client.config.RetryConfig.MaxRetries = 0
+	disableRetries(client)
 
 	_, err := client.GetUserPostsWithOptions(context.Background(), ConvertToUserID("12345"), nil)
 	if err == nil {

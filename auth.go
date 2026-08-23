@@ -93,9 +93,10 @@ func (c *Client) GetAuthURL(scopes []string) (authURL, state string, err error) 
 		return "", "", err
 	}
 
+	cfg := c.getConfig()
 	params := url.Values{
-		"client_id":     {c.config.ClientID},
-		"redirect_uri":  {c.config.RedirectURI},
+		"client_id":     {cfg.ClientID},
+		"redirect_uri":  {cfg.RedirectURI},
 		"scope":         {strings.Join(scopes, ",")}, // Use comma-separated scopes
 		"response_type": {"code"},
 		"state":         {state},
@@ -130,15 +131,17 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 		return NewAuthenticationError(400, "OAuth state mismatch", "The state parameter returned by the provider does not match the one issued by GetAuthURL; possible CSRF/code-fixation attempt")
 	}
 
+	st := c.getState()
+	cfg := st.config
 	data := url.Values{
-		"client_id":     {c.config.ClientID},
-		"client_secret": {c.config.ClientSecret},
+		"client_id":     {cfg.ClientID},
+		"client_secret": {cfg.ClientSecret},
 		"grant_type":    {"authorization_code"},
-		"redirect_uri":  {c.config.RedirectURI},
+		"redirect_uri":  {cfg.RedirectURI},
 		"code":          {code},
 	}
 
-	resp, err := c.httpClient.POST("/oauth/access_token", data, "")
+	resp, err := c.httpClient.POSTWithConfig("/oauth/access_token", data, "", st.http)
 	if err != nil {
 		return NewNetworkError(0, "Failed to exchange code for token", err.Error(), true)
 	}
@@ -172,14 +175,14 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 
 	// Store the token using thread-safe method
 	if err := c.SetTokenInfo(tokenInfo); err != nil {
-		if c.config.Logger != nil {
-			c.config.Logger.Warn("Failed to store token", "error", err.Error())
+		if logger := c.getConfig().Logger; logger != nil {
+			logger.Warn("Failed to store token", "error", err.Error())
 		}
 	}
 
 	// Log successful authentication if logger is available
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Successfully exchanged authorization code for access token",
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Successfully exchanged authorization code for access token",
 			"user_id", fmt.Sprintf("%d", tokenResp.UserID),
 			"token_type", tokenResp.NormalizedTokenType(),
 			"expires_at", expiresAt)
@@ -201,13 +204,14 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 		return NewAuthenticationError(401, "No access token available", "Must exchange authorization code for token first")
 	}
 
+	st := c.getState()
 	params := url.Values{
 		"grant_type":    {"th_exchange_token"},
-		"client_secret": {c.config.ClientSecret},
+		"client_secret": {st.config.ClientSecret},
 		"access_token":  {currentToken},
 	}
 
-	resp, err := c.httpClient.GET("/access_token", params, currentToken)
+	resp, err := c.httpClient.GETWithConfig("/access_token", params, currentToken, st.http)
 	if err != nil {
 		return NewNetworkError(0, "Failed to get long-lived token", err.Error(), true)
 	}
@@ -249,14 +253,14 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 
 	// Store the token using thread-safe method
 	if err := c.SetTokenInfo(tokenInfo); err != nil {
-		if c.config.Logger != nil {
-			c.config.Logger.Warn("Failed to store long-lived token", "error", err.Error())
+		if logger := c.getConfig().Logger; logger != nil {
+			logger.Warn("Failed to store long-lived token", "error", err.Error())
 		}
 	}
 
 	// Log successful long-lived token conversion if logger is available
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Successfully converted to long-lived token",
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Successfully converted to long-lived token",
 			"expires_in_seconds", tokenResp.ExpiresIn,
 			"expires_at", expiresAt,
 			"token_type", tokenResp.NormalizedTokenType())
@@ -325,14 +329,14 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 
 	// Store the token using thread-safe method
 	if err := c.SetTokenInfo(tokenInfo); err != nil {
-		if c.config.Logger != nil {
-			c.config.Logger.Warn("Failed to store refreshed token", "error", err.Error())
+		if logger := c.getConfig().Logger; logger != nil {
+			logger.Warn("Failed to store refreshed token", "error", err.Error())
 		}
 	}
 
 	// Log successful token refresh if logger is available
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Successfully refreshed access token",
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Successfully refreshed access token",
 			"expires_in_seconds", tokenResp.ExpiresIn,
 			"expires_at", expiresAt,
 			"token_type", tokenResp.NormalizedTokenType())
@@ -418,8 +422,8 @@ func (c *Client) LoadTokenFromStorage() error {
 		return err
 	}
 
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Successfully loaded token from storage",
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Successfully loaded token from storage",
 			"expires_at", tokenInfo.ExpiresAt,
 			"user_id", tokenInfo.UserID)
 	}
@@ -499,7 +503,8 @@ func (c *Client) DebugToken(ctx context.Context, inputToken string) (*DebugToken
 	// dev-mode role checks against that. Fall back to the user token only if
 	// ClientID/ClientSecret aren't configured, to preserve behavior for
 	// callers that don't supply them.
-	callerToken := c.GetAppAccessTokenShorthand()
+	st := c.getState()
+	callerToken := appAccessTokenShorthand(st.config)
 	if callerToken == "" {
 		callerToken = accessToken
 	}
@@ -509,7 +514,7 @@ func (c *Client) DebugToken(ctx context.Context, inputToken string) (*DebugToken
 		"access_token": {callerToken},
 	}
 
-	resp, err := c.httpClient.GET("/debug_token", params, callerToken)
+	resp, err := c.httpClient.GETWithConfig("/debug_token", params, callerToken, st.http)
 	if err != nil {
 		// Propagate the typed error (e.g. AuthenticationError for code 190)
 		// so callers can inspect it correctly. Wrapping in a NetworkError with
@@ -527,8 +532,8 @@ func (c *Client) DebugToken(ctx context.Context, inputToken string) (*DebugToken
 		return nil, NewAPIError(resp.StatusCode, "Failed to parse debug token response", err.Error(), "")
 	}
 
-	if c.config.Logger != nil {
-		c.config.Logger.Debug("Debug token response received",
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Debug("Debug token response received",
 			"is_valid", debugResp.Data.IsValid,
 			"expires_at", debugResp.Data.ExpiresAt,
 			"issued_at", debugResp.Data.IssuedAt,
@@ -548,13 +553,15 @@ func (c *Client) DebugToken(ctx context.Context, inputToken string) (*DebugToken
 // approach specified in RFC 6749 §4.4). As a result, client_secret appears in
 // the request URL. Only call this from a server-side environment.
 func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse, error) {
+	st := c.getState()
+	cfg := st.config
 	params := url.Values{
-		"client_id":     {c.config.ClientID},
-		"client_secret": {c.config.ClientSecret},
+		"client_id":     {cfg.ClientID},
+		"client_secret": {cfg.ClientSecret},
 		"grant_type":    {"client_credentials"},
 	}
 
-	resp, err := c.httpClient.GET("/oauth/access_token", params, "")
+	resp, err := c.httpClient.GETWithConfig("/oauth/access_token", params, "", st.http)
 	if err != nil {
 		return nil, NewNetworkError(0, "Failed to get app access token", err.Error(), true)
 	}
@@ -568,8 +575,8 @@ func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse
 		return nil, NewAPIError(resp.StatusCode, "Failed to parse app access token response", err.Error(), "")
 	}
 
-	if c.config.Logger != nil {
-		c.config.Logger.Info("Successfully obtained app access token",
+	if logger := c.getConfig().Logger; logger != nil {
+		logger.Info("Successfully obtained app access token",
 			"token_type", tokenResp.NormalizedTokenType())
 	}
 
@@ -581,10 +588,16 @@ func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse
 // See the Threads API documentation for which endpoints accept this format.
 // Returns an empty string if ClientID or ClientSecret are not configured.
 func (c *Client) GetAppAccessTokenShorthand() string {
-	if c.config.ClientID == "" || c.config.ClientSecret == "" {
+	return appAccessTokenShorthand(c.getConfig())
+}
+
+// appAccessTokenShorthand builds the "TH|<id>|<secret>" app token for cfg, or
+// returns "" when either credential is unset.
+func appAccessTokenShorthand(cfg *Config) string {
+	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return ""
 	}
-	return "TH|" + c.config.ClientID + "|" + c.config.ClientSecret
+	return "TH|" + cfg.ClientID + "|" + cfg.ClientSecret
 }
 
 // SetTokenFromDebugInfo creates and sets token info from debug token response.
@@ -617,9 +630,9 @@ func (c *Client) SetTokenFromDebugInfo(accessToken string, debugResp *DebugToken
 		return fmt.Errorf("failed to store token info: %w", err)
 	}
 
-	if c.config.Logger != nil {
+	if logger := c.getConfig().Logger; logger != nil {
 		lifetime := expiresAt.Sub(issuedAt)
-		c.config.Logger.Info("Token info set from debug response",
+		logger.Info("Token info set from debug response",
 			"user_id", debugResp.Data.UserID,
 			"expires_at", expiresAt,
 			"issued_at", issuedAt,

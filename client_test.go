@@ -1385,9 +1385,9 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	// Verify it's a copy (modifying shouldn't affect client)
-	original := client.config.ClientID
+	original := client.getConfig().ClientID
 	retrieved.ClientID = "modified"
-	if client.config.ClientID != original {
+	if client.getConfig().ClientID != original {
 		t.Error("GetConfig should return a copy, not a reference")
 	}
 }
@@ -1428,8 +1428,14 @@ func TestUpdateConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected no error, got: %v", err)
 		}
-		if client.baseURL != "https://new-api.example.com" {
-			t.Errorf("Expected baseURL to be updated, got %q", client.baseURL)
+		if got := client.GetConfig().BaseURL; got != "https://new-api.example.com" {
+			t.Errorf("Expected BaseURL to be updated, got %q", got)
+		}
+		client.httpClient.mu.RLock()
+		httpBaseURL := client.httpClient.baseURL
+		client.httpClient.mu.RUnlock()
+		if httpBaseURL != "https://new-api.example.com" {
+			t.Errorf("Expected HTTP layer baseURL to be updated, got %q", httpBaseURL)
 		}
 	})
 }

@@ -31,7 +31,11 @@ func validateRedirectURI(rawURL string) error {
 	return err
 }
 
-func validateBaseURL(rawURL string) error {
+// validateBaseURL checks that rawURL is usable as an API base URL. Plaintext
+// HTTP is rejected unless it targets a loopback host, or allowInsecure is set
+// by Config.AllowInsecureBaseURL for proxy/gateway deployments that terminate
+// TLS elsewhere.
+func validateBaseURL(rawURL string, allowInsecure bool) error {
 	u, err := parseHTTPURL(rawURL, "BaseURL")
 	if err != nil {
 		return err
@@ -39,17 +43,27 @@ func validateBaseURL(rawURL string) error {
 	if u.RawQuery != "" {
 		return fmt.Errorf("BaseURL must not contain a query string")
 	}
-	if u.Scheme == "https" {
+	if u.Scheme == "https" || allowInsecure {
 		return nil
 	}
 
-	hostname := strings.ToLower(u.Hostname())
+	if isLoopbackHostname(u.Hostname()) {
+		return nil
+	}
+
+	return fmt.Errorf("BaseURL must use HTTPS unless it targets a loopback host (set AllowInsecureBaseURL to override)")
+}
+
+// isLoopbackHostname reports whether hostname names the local machine.
+// Note that net.ParseIP does not accept shorthand IPv4 forms such as "127.1";
+// those require AllowInsecureBaseURL.
+func isLoopbackHostname(hostname string) bool {
+	hostname = strings.ToLower(strings.TrimSuffix(hostname, "."))
+	if hostname == "localhost" || strings.HasSuffix(hostname, ".localhost") {
+		return true
+	}
 	ip := net.ParseIP(hostname)
-	if hostname == "localhost" || (ip != nil && ip.IsLoopback()) {
-		return nil
-	}
-
-	return fmt.Errorf("BaseURL must use HTTPS unless it targets a loopback host")
+	return ip != nil && ip.IsLoopback()
 }
 
 // Validator provides common validation methods
@@ -602,7 +616,7 @@ func (cv *ConfigValidator) validateHTTPSettings(c *Config) error {
 		return fmt.Errorf("BaseURL is required")
 	}
 
-	return validateBaseURL(c.BaseURL)
+	return validateBaseURL(c.BaseURL, c.AllowInsecureBaseURL)
 }
 
 // validateRetryConfig validates retry configuration

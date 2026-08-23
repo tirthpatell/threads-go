@@ -23,14 +23,15 @@ import (
 // and Client.EnableRateLimiting can swap it safely under a concurrent
 // request path without tearing. Readers must go through getRateLimiter().
 type HTTPClient struct {
-	mu                  sync.RWMutex
-	client              *http.Client
-	logger              Logger
-	retryConfig         *RetryConfig
-	rateLimiter         atomic.Pointer[RateLimiter]
-	baseURL             string
-	userAgent           string
-	maxResponseBodySize int64
+	mu                   sync.RWMutex
+	client               *http.Client
+	logger               Logger
+	retryConfig          *RetryConfig
+	rateLimiter          atomic.Pointer[RateLimiter]
+	baseURL              string
+	userAgent            string
+	maxResponseBodySize  int64
+	allowInsecureBaseURL bool
 }
 
 // RequestOptions holds options for HTTP requests
@@ -78,11 +79,14 @@ func defaultRetryConfig() RetryConfig {
 	}
 }
 
+// effectiveRetryConfig returns a private copy of config, or the defaults when
+// config is nil. Copying matters because the caller keeps ownership of the
+// *RetryConfig it passed to NewClient and may write to it concurrently.
 func effectiveRetryConfig(config *RetryConfig) *RetryConfig {
-	if config != nil {
-		return config
-	}
 	retryConfig := defaultRetryConfig()
+	if config != nil {
+		retryConfig = *config
+	}
 	return &retryConfig
 }
 
@@ -93,6 +97,7 @@ func (h *HTTPClient) updateConfig(config *Config) {
 	baseURL := BaseAPIURL
 	userAgent := DefaultUserAgent
 	maxResponseBodySize := int64(DefaultMaxResponseBodySize)
+	allowInsecureBaseURL := false
 	var logger Logger
 	var retryConfig *RetryConfig
 
@@ -110,6 +115,7 @@ func (h *HTTPClient) updateConfig(config *Config) {
 			maxResponseBodySize = config.MaxResponseBodySize
 		}
 		logger = config.Logger
+		allowInsecureBaseURL = config.AllowInsecureBaseURL
 		retryConfig = effectiveRetryConfig(config.RetryConfig)
 	} else {
 		retryConfig = effectiveRetryConfig(nil)
@@ -122,27 +128,30 @@ func (h *HTTPClient) updateConfig(config *Config) {
 	h.baseURL = strings.TrimRight(baseURL, "/")
 	h.userAgent = userAgent
 	h.maxResponseBodySize = maxResponseBodySize
+	h.allowInsecureBaseURL = allowInsecureBaseURL
 	h.mu.Unlock()
 }
 
 type httpConfigSnapshot struct {
-	client              *http.Client
-	logger              Logger
-	retryConfig         RetryConfig
-	baseURL             string
-	userAgent           string
-	maxResponseBodySize int64
+	client               *http.Client
+	logger               Logger
+	retryConfig          RetryConfig
+	baseURL              string
+	userAgent            string
+	maxResponseBodySize  int64
+	allowInsecureBaseURL bool
 }
 
 func (h *HTTPClient) configSnapshot() httpConfigSnapshot {
 	h.mu.RLock()
 	snapshot := httpConfigSnapshot{
-		client:              h.client,
-		logger:              h.logger,
-		baseURL:             h.baseURL,
-		userAgent:           h.userAgent,
-		maxResponseBodySize: h.maxResponseBodySize,
-		retryConfig:         defaultRetryConfig(),
+		client:               h.client,
+		logger:               h.logger,
+		baseURL:              h.baseURL,
+		userAgent:            h.userAgent,
+		maxResponseBodySize:  h.maxResponseBodySize,
+		allowInsecureBaseURL: h.allowInsecureBaseURL,
+		retryConfig:          defaultRetryConfig(),
 	}
 	if h.retryConfig != nil {
 		snapshot.retryConfig = *h.retryConfig
@@ -172,8 +181,17 @@ func (h *HTTPClient) setRateLimiter(rl *RateLimiter) {
 	h.rateLimiter.Store(rl)
 }
 
-// Do executes an HTTP request with retry logic and error handling
+// Do executes an HTTP request with retry logic and error handling, using the
+// transport configuration current at the time of the call.
 func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, error) {
+	return h.DoWithConfig(opts, accessToken, h.configSnapshot())
+}
+
+// DoWithConfig is Do against an explicit transport snapshot. Callers that read
+// credentials out of the client configuration must pass the snapshot captured
+// alongside that configuration, so a concurrent UpdateConfig cannot pair old
+// credentials with a new destination.
+func (h *HTTPClient) DoWithConfig(opts *RequestOptions, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	if opts.Context == nil {
 		opts.Context = context.Background()
 	}
@@ -185,7 +203,6 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 		}
 	}
 
-	requestConfig := h.configSnapshot()
 	var lastErr error
 	maxRetries := requestConfig.retryConfig.MaxRetries
 	delay := requestConfig.retryConfig.InitialDelay
@@ -215,7 +232,7 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 				return nil, err
 			}
 
-			h.logRetry(attempt, maxRetries, err)
+			h.logRetry(requestConfig.logger, attempt, maxRetries, err)
 			continue
 		}
 
@@ -234,7 +251,7 @@ func (h *HTTPClient) Do(opts *RequestOptions, accessToken string) (*Response, er
 func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	startTime := time.Now()
 
-	if err := validateBaseURL(requestConfig.baseURL); err != nil {
+	if err := validateBaseURL(requestConfig.baseURL, requestConfig.allowInsecureBaseURL); err != nil {
 		return nil, fmt.Errorf("invalid BaseURL: %w", err)
 	}
 
@@ -291,7 +308,7 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, re
 	}
 
 	// Log request
-	h.logRequest(req, opts.Body)
+	h.logRequest(requestConfig.logger, req, opts.Body)
 
 	// Execute request
 	httpResp, err := requestConfig.client.Do(req)
@@ -330,7 +347,7 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, re
 	}
 
 	// Log response
-	h.logResponse(resp)
+	h.logResponse(requestConfig.logger, resp)
 
 	// Check for HTTP errors
 	if httpResp.StatusCode >= 400 {
@@ -588,8 +605,7 @@ func (h *HTTPClient) isRetryableError(err error) bool {
 }
 
 // logRequest logs the outgoing HTTP request
-func (h *HTTPClient) logRequest(req *http.Request, body interface{}) {
-	logger := h.configSnapshot().logger
+func (h *HTTPClient) logRequest(logger Logger, req *http.Request, body interface{}) {
 	if logger == nil {
 		return
 	}
@@ -613,8 +629,7 @@ func (h *HTTPClient) logRequest(req *http.Request, body interface{}) {
 }
 
 // logResponse logs the HTTP response
-func (h *HTTPClient) logResponse(resp *Response) {
-	logger := h.configSnapshot().logger
+func (h *HTTPClient) logResponse(logger Logger, resp *Response) {
 	if logger == nil {
 		return
 	}
@@ -641,8 +656,7 @@ func (h *HTTPClient) logResponse(resp *Response) {
 }
 
 // logRetry logs retry attempts
-func (h *HTTPClient) logRetry(attempt, maxRetries int, err error) {
-	logger := h.configSnapshot().logger
+func (h *HTTPClient) logRetry(logger Logger, attempt, maxRetries int, err error) {
 	if logger == nil {
 		return
 	}
@@ -686,14 +700,18 @@ func sanitizeURL(u *url.URL) string {
 	if u == nil {
 		return ""
 	}
+	// Drop any userinfo before anything else: it may carry credentials and is
+	// never needed to identify a request.
+	clone := *u
+	clone.User = nil
+	u = &clone
 	if u.RawQuery == "" {
 		return u.String()
 	}
 	q, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		clone := *u
-		clone.RawQuery = "[REDACTED]"
-		return clone.String()
+		u.RawQuery = "[REDACTED]"
+		return u.String()
 	}
 	redacted := false
 	for name := range q {
@@ -705,27 +723,36 @@ func sanitizeURL(u *url.URL) string {
 	if !redacted {
 		return u.String()
 	}
-	clone := *u
-	clone.RawQuery = q.Encode()
-	return clone.String()
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // GET performs a GET request
 func (h *HTTPClient) GET(path string, queryParams url.Values, accessToken string) (*Response, error) {
-	return h.Do(&RequestOptions{
+	return h.GETWithConfig(path, queryParams, accessToken, h.configSnapshot())
+}
+
+// GETWithConfig performs a GET request against an explicit transport snapshot.
+func (h *HTTPClient) GETWithConfig(path string, queryParams url.Values, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
+	return h.DoWithConfig(&RequestOptions{
 		Method:      "GET",
 		Path:        path,
 		QueryParams: queryParams,
-	}, accessToken)
+	}, accessToken, requestConfig)
 }
 
 // POST performs a POST request
 func (h *HTTPClient) POST(path string, body interface{}, accessToken string) (*Response, error) {
-	return h.Do(&RequestOptions{
+	return h.POSTWithConfig(path, body, accessToken, h.configSnapshot())
+}
+
+// POSTWithConfig performs a POST request against an explicit transport snapshot.
+func (h *HTTPClient) POSTWithConfig(path string, body interface{}, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
+	return h.DoWithConfig(&RequestOptions{
 		Method: "POST",
 		Path:   path,
 		Body:   body,
-	}, accessToken)
+	}, accessToken, requestConfig)
 }
 
 // PUT performs a PUT request

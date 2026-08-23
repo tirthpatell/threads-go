@@ -233,8 +233,10 @@ func TestDebugToken_FallbackToUserTokenWithoutClientCreds(t *testing.T) {
 	client := testClient(t, handler)
 	// NewClient rejects empty client creds, so blank them out post-construction
 	// to exercise the fallback branch in DebugToken.
-	client.config.ClientID = ""
-	client.config.ClientSecret = ""
+	overrideConfig(client, func(cfg *Config) {
+		cfg.ClientID = ""
+		cfg.ClientSecret = ""
+	})
 
 	if _, err := client.DebugToken(context.Background(), ""); err != nil {
 		t.Fatalf("unexpected error: %v", err)
