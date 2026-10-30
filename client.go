@@ -49,6 +49,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -132,6 +133,14 @@ type Config struct {
 	// HTTPTimeout sets the timeout for HTTP requests (optional).
 	// Default: 30 seconds. Set to 0 for no timeout (not recommended).
 	HTTPTimeout time.Duration
+
+	// HTTPClient is the HTTP client used for every request, including the
+	// token and OAuth endpoints (optional). Set it to route requests through
+	// a custom transport, for example a per-account proxy.
+	// If nil, the library builds its own client with HTTPTimeout.
+	// A supplied client is used as given and never modified. HTTPTimeout does
+	// not apply to it, so set the client's own Timeout if you need one.
+	HTTPClient *http.Client
 
 	// RetryConfig configures retry behavior for failed requests (optional).
 	// If nil, default retry configuration will be used.
