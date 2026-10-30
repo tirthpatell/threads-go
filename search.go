@@ -74,7 +74,7 @@ func (c *Client) KeywordSearch(ctx context.Context, query string, opts *SearchOp
 
 	// Make API call to keyword search endpoint
 	path := "/keyword_search"
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}

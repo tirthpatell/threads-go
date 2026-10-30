@@ -30,7 +30,7 @@ func (c *Client) DeletePost(ctx context.Context, postID PostID) (string, error) 
 
 	// Make API call to delete post
 	path := fmt.Sprintf("/%s", postID.String())
-	resp, err := c.httpClient.DELETE(path, c.getAccessTokenSafe())
+	resp, err := c.httpClient.DELETE(ctx, path, c.getAccessTokenSafe())
 	if err != nil {
 		return "", err
 	}

@@ -41,7 +41,7 @@ func (c *Client) SearchLocations(ctx context.Context, query string, latitude, lo
 	}
 
 	// Make API call
-	resp, err := c.httpClient.GET("/location_search", params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, "/location_search", params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (c *Client) GetLocation(ctx context.Context, locationID LocationID) (*Locat
 
 	// Make API call
 	path := fmt.Sprintf("/%s", locationID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get location: %w", err)
 	}

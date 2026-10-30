@@ -35,8 +35,8 @@ func buildRepliesParams(opts *RepliesOptions, maxLimit int, limitDescription str
 }
 
 // fetchRepliesData makes the API call and handles common error cases
-func (c *Client) fetchRepliesData(path string, params url.Values, postID PostID, dataType string) (*RepliesResponse, error) {
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+func (c *Client) fetchRepliesData(ctx context.Context, path string, params url.Values, postID PostID, dataType string) (*RepliesResponse, error) {
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *Client) GetReplies(ctx context.Context, postID PostID, opts *RepliesOpt
 
 	// Make API call to get post replies
 	path := fmt.Sprintf("/%s/replies", postID.String())
-	return c.fetchRepliesData(path, params, postID, "post replies")
+	return c.fetchRepliesData(ctx, path, params, postID, "post replies")
 }
 
 // GetConversation retrieves a flattened conversation thread for a specific post
@@ -104,7 +104,7 @@ func (c *Client) GetConversation(ctx context.Context, postID PostID, opts *Repli
 
 	// Make API call to get conversation
 	path := fmt.Sprintf("/%s/conversation", postID.String())
-	return c.fetchRepliesData(path, params, postID, "conversation")
+	return c.fetchRepliesData(ctx, path, params, postID, "conversation")
 }
 
 // GetPendingReplies retrieves pending replies for a post with reply approvals enabled
@@ -148,7 +148,7 @@ func (c *Client) GetPendingReplies(ctx context.Context, postID PostID, opts *Pen
 	}
 
 	path := fmt.Sprintf("/%s/pending_replies", postID.String())
-	return c.fetchRepliesData(path, params, postID, "pending replies")
+	return c.fetchRepliesData(ctx, path, params, postID, "pending replies")
 }
 
 // ApprovePendingReply approves a pending reply, making it publicly visible
@@ -182,7 +182,7 @@ func (c *Client) managePendingReply(ctx context.Context, replyID PostID, approve
 	}
 
 	path := fmt.Sprintf("/%s/manage_pending_reply", replyID.String())
-	resp, err := c.httpClient.POST(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POST(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (c *Client) manageReplyVisibility(ctx context.Context, replyID PostID, hide
 
 	// Make API call to manage reply visibility
 	path := fmt.Sprintf("/%s/manage_reply", replyID.String())
-	resp, err := c.httpClient.POST(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POST(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return err
 	}

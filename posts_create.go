@@ -258,7 +258,7 @@ func (c *Client) RepostPost(ctx context.Context, postID PostID) (*Post, error) {
 
 	// Use the direct repost endpoint
 	path := fmt.Sprintf("/%s/repost", postID.String())
-	resp, err := c.httpClient.POST(path, nil, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POST(ctx, path, nil, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repost: %w", err)
 	}
@@ -463,7 +463,7 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 
 	// Make API call to create and publish post directly
 	path := fmt.Sprintf("/%s/threads", userID)
-	resp, err := c.httpClient.POST(path, builder.Build(), c.getAccessTokenSafe())
+	resp, err := c.httpClient.POST(ctx, path, builder.Build(), c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +488,7 @@ func (c *Client) createAndPublishTextPostDirectly(ctx context.Context, content *
 }
 
 // createContainer is a helper method to create containers with given parameters
-func (c *Client) createContainer(_ context.Context, params url.Values) (string, error) {
+func (c *Client) createContainer(ctx context.Context, params url.Values) (string, error) {
 	// Get user ID from token info
 	userID := c.getUserID()
 	if !UserID(userID).Valid() {
@@ -497,7 +497,7 @@ func (c *Client) createContainer(_ context.Context, params url.Values) (string, 
 
 	// Make API call to create container
 	path := fmt.Sprintf("/%s/threads", userID)
-	resp, err := c.httpClient.POST(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POST(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return "", err
 	}
@@ -541,7 +541,7 @@ func (c *Client) publishContainer(ctx context.Context, containerID string) (*Pos
 
 	// Make API call to publish container
 	path := fmt.Sprintf("/%s/threads_publish", userID)
-	resp, err := c.httpClient.POST(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POST(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -590,7 +590,7 @@ func (c *Client) GetContainerStatus(ctx context.Context, containerID ContainerID
 
 	// Make API call to get container status
 	path := fmt.Sprintf("/%s", containerID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get container status: %w", err)
 	}

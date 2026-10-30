@@ -25,7 +25,7 @@ func (c *Client) GetUser(ctx context.Context, userID UserID) (*User, error) {
 
 	// Make API call to get user
 	path := fmt.Sprintf("/%s", userID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *Client) GetUserFields(ctx context.Context, userID UserID, fields []stri
 
 	// Make API call to get user
 	path := fmt.Sprintf("/%s", userID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (c *Client) LookupPublicProfile(ctx context.Context, username string) (*Pub
 
 	// Make API call to lookup public profile
 	path := "/profile_lookup"
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (c *Client) GetPublicProfilePosts(ctx context.Context, username string, opt
 
 	// Make API call to get public profile posts
 	path := "/profile_posts"
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func (c *Client) GetUserReplies(ctx context.Context, userID UserID, opts *PostsO
 
 	// Make API call to get user replies
 	path := fmt.Sprintf("/%s/replies", userID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
