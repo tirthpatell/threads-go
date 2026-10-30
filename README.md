@@ -337,7 +337,7 @@ case threads.IsTransientError(err):
 }
 ```
 
-Error types: `AuthenticationError`, `RateLimitError`, `ValidationError`, `NetworkError`, `APIError`
+Error types: `AuthenticationError`, `RateLimitError`, `ValidationError`, `NetworkError`, `APIError`, `ContainerError`. A `ContainerError` means Threads failed to process a media container or let it expire, so publishing it again cannot succeed.
 
 ## Testing
 

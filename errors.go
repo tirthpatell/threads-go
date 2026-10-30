@@ -158,6 +158,34 @@ func NewAPIError(code int, message, details, requestID string) *APIError {
 	}
 }
 
+// ContainerError reports a media container that Threads will not publish,
+// because processing failed (status ERROR) or the container expired (status
+// EXPIRED). Retrying the publish of the same container cannot succeed.
+type ContainerError struct {
+	ContainerID string `json:"container_id"`
+	Status      string `json:"status"`
+	Message     string `json:"message,omitempty"`
+}
+
+// Error implements the error interface
+func (e *ContainerError) Error() string {
+	switch {
+	case e.Status == ContainerStatusExpired:
+		return fmt.Sprintf("container %s expired before it could be published", e.ContainerID)
+	case e.Message != "":
+		return fmt.Sprintf("container %s processing failed: %s", e.ContainerID, e.Message)
+	default:
+		return fmt.Sprintf("container %s processing failed with error status", e.ContainerID)
+	}
+}
+
+// IsContainerError checks if an error is a container error.
+// Returns true if the error is of type *ContainerError.
+func IsContainerError(err error) bool {
+	var containerError *ContainerError
+	return errors.As(err, &containerError)
+}
+
 // extractBaseError returns the embedded BaseError from any of the typed error types.
 // Returns nil if the error is not one of the known types.
 func extractBaseError(err error) *BaseError {
