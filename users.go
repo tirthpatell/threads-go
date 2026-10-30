@@ -246,7 +246,7 @@ func (c *Client) GetPublicProfilePosts(ctx context.Context, username string, opt
 	// Build query parameters with enhanced fields from API documentation
 	params := url.Values{
 		"username": {username},
-		"fields":   {PostExtendedFields},
+		"fields":   {opts.fields(PostExtendedFields)},
 	}
 
 	// Add pagination and filtering options if provided
@@ -312,7 +312,7 @@ func (c *Client) GetUserReplies(ctx context.Context, userID UserID, opts *PostsO
 
 	// Build query parameters with reply-specific fields from API documentation
 	params := url.Values{
-		"fields": {ReplyFields},
+		"fields": {opts.fields(ReplyFields)},
 	}
 
 	// Add pagination and filtering options if provided
