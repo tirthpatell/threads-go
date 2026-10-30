@@ -156,7 +156,7 @@ func TestAllowInsecureBaseURLReachesHTTPLayer(t *testing.T) {
 	rejecting.mu.Lock()
 	rejecting.client = redirectingClient
 	rejecting.mu.Unlock()
-	if _, err := rejecting.GET("/12345", nil, "test-access-token"); err == nil ||
+	if _, err := rejecting.GET(context.Background(), "/12345", nil, "test-access-token"); err == nil ||
 		!strings.Contains(err.Error(), "invalid BaseURL") {
 		t.Fatalf("expected the request to be rejected for an insecure BaseURL, got %v", err)
 	}

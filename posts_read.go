@@ -24,7 +24,7 @@ func (c *Client) GetPost(ctx context.Context, postID PostID) (*Post, error) {
 
 	// Make API call to get post
 	path := fmt.Sprintf("/%s", postID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *Client) GetUserPostsWithOptions(ctx context.Context, userID UserID, opt
 
 	// Make API call to get user posts
 	path := fmt.Sprintf("/%s/threads", userID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Posts
 
 	// Make API call to get user mentions
 	path := fmt.Sprintf("/%s/mentions", userID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (c *Client) GetPublishingLimits(ctx context.Context) (*PublishingLimits, er
 
 	// Make API call
 	path := fmt.Sprintf("/%s/threads_publishing_limit", userID)
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func (c *Client) GetUserGhostPosts(ctx context.Context, userID UserID, opts *Pag
 
 	// Make API call to get ghost posts
 	path := fmt.Sprintf("/%s/ghost_posts", userID.String())
-	resp, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}

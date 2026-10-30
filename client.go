@@ -614,7 +614,7 @@ func NewClientWithToken(accessToken string, config *Config) (*Client, error) {
 
 	// debug_token failed — verify with /me as fallback. Call httpClient
 	// directly rather than TestAPICall (which is test-only infrastructure).
-	meResp, meErr := client.httpClient.GET("/v1.0/me", url.Values{"fields": {"id"}}, accessToken)
+	meResp, meErr := client.httpClient.GET(context.Background(), "/v1.0/me", url.Values{"fields": {"id"}}, accessToken)
 	if meErr != nil {
 		return nil, fmt.Errorf("failed to validate token (debug_token: %v, /me: %w)", debugErr, meErr)
 	}
@@ -928,11 +928,11 @@ func (c *Client) TestAPICall(method, path string, params map[string]string) (*Re
 
 	switch method {
 	case "GET":
-		return c.httpClient.GET(path, queryParams, token)
+		return c.httpClient.GET(context.Background(), path, queryParams, token)
 	case "POST":
-		return c.httpClient.POST(path, queryParams, token)
+		return c.httpClient.POST(context.Background(), path, queryParams, token)
 	default:
-		return c.httpClient.GET(path, queryParams, token)
+		return c.httpClient.GET(context.Background(), path, queryParams, token)
 	}
 }
 

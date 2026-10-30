@@ -727,47 +727,51 @@ func sanitizeURL(u *url.URL) string {
 	return u.String()
 }
 
-// GET performs a GET request
-func (h *HTTPClient) GET(path string, queryParams url.Values, accessToken string) (*Response, error) {
-	return h.GETWithConfig(path, queryParams, accessToken, h.configSnapshot())
+// GET performs a GET request bound to ctx.
+func (h *HTTPClient) GET(ctx context.Context, path string, queryParams url.Values, accessToken string) (*Response, error) {
+	return h.GETWithConfig(ctx, path, queryParams, accessToken, h.configSnapshot())
 }
 
-// GETWithConfig performs a GET request against an explicit transport snapshot.
-func (h *HTTPClient) GETWithConfig(path string, queryParams url.Values, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
+// GETWithConfig performs a GET request bound to ctx against an explicit transport snapshot.
+func (h *HTTPClient) GETWithConfig(ctx context.Context, path string, queryParams url.Values, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	return h.DoWithConfig(&RequestOptions{
 		Method:      "GET",
 		Path:        path,
 		QueryParams: queryParams,
+		Context:     ctx,
 	}, accessToken, requestConfig)
 }
 
-// POST performs a POST request
-func (h *HTTPClient) POST(path string, body interface{}, accessToken string) (*Response, error) {
-	return h.POSTWithConfig(path, body, accessToken, h.configSnapshot())
+// POST performs a POST request bound to ctx.
+func (h *HTTPClient) POST(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
+	return h.POSTWithConfig(ctx, path, body, accessToken, h.configSnapshot())
 }
 
-// POSTWithConfig performs a POST request against an explicit transport snapshot.
-func (h *HTTPClient) POSTWithConfig(path string, body interface{}, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
+// POSTWithConfig performs a POST request bound to ctx against an explicit transport snapshot.
+func (h *HTTPClient) POSTWithConfig(ctx context.Context, path string, body interface{}, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	return h.DoWithConfig(&RequestOptions{
-		Method: "POST",
-		Path:   path,
-		Body:   body,
+		Method:  "POST",
+		Path:    path,
+		Body:    body,
+		Context: ctx,
 	}, accessToken, requestConfig)
 }
 
-// PUT performs a PUT request
-func (h *HTTPClient) PUT(path string, body interface{}, accessToken string) (*Response, error) {
+// PUT performs a PUT request bound to ctx.
+func (h *HTTPClient) PUT(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
 	return h.Do(&RequestOptions{
-		Method: "PUT",
-		Path:   path,
-		Body:   body,
+		Method:  "PUT",
+		Path:    path,
+		Body:    body,
+		Context: ctx,
 	}, accessToken)
 }
 
-// DELETE performs a DELETE request
-func (h *HTTPClient) DELETE(path string, accessToken string) (*Response, error) {
+// DELETE performs a DELETE request bound to ctx.
+func (h *HTTPClient) DELETE(ctx context.Context, path string, accessToken string) (*Response, error) {
 	return h.Do(&RequestOptions{
-		Method: "DELETE",
-		Path:   path,
+		Method:  "DELETE",
+		Path:    path,
+		Context: ctx,
 	}, accessToken)
 }

@@ -129,7 +129,7 @@ func (c *Client) GetPostInsights(ctx context.Context, postID PostID, metrics []s
 	params.Set("metric", strings.Join(validMetrics, ","))
 
 	path := fmt.Sprintf("/%s/insights", postID.String())
-	response, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	response, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get post insights: %w", err)
 	}
@@ -198,7 +198,7 @@ func (c *Client) GetPostInsightsWithOptions(ctx context.Context, postID PostID, 
 	}
 
 	path := fmt.Sprintf("/%s/insights", postID.String())
-	response, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	response, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get post insights: %w", err)
 	}
@@ -251,7 +251,7 @@ func (c *Client) GetAccountInsights(ctx context.Context, userID UserID, metrics 
 	}
 
 	path := fmt.Sprintf("/%s/threads_insights", userID.String())
-	response, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	response, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account insights: %w", err)
 	}
@@ -370,7 +370,7 @@ func (c *Client) GetAccountInsightsWithOptions(ctx context.Context, userID UserI
 	}
 
 	path := fmt.Sprintf("/%s/threads_insights", userID.String())
-	response, err := c.httpClient.GET(path, params, c.getAccessTokenSafe())
+	response, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account insights: %w", err)
 	}
