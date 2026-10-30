@@ -531,6 +531,51 @@ func TestGetUserPostsWithOptions_WithTimeFilters(t *testing.T) {
 	}
 }
 
+func TestPostsOptions_Fields(t *testing.T) {
+	calls := []struct {
+		name     string
+		defaults string
+		call     func(c *Client, opts *PostsOptions) error
+	}{
+		{"GetUserPostsWithOptions", PostExtendedFields, func(c *Client, opts *PostsOptions) error {
+			_, err := c.GetUserPostsWithOptions(context.Background(), ConvertToUserID("12345"), opts)
+			return err
+		}},
+		{"GetUserMentions", PostExtendedFields, func(c *Client, opts *PostsOptions) error {
+			_, err := c.GetUserMentions(context.Background(), ConvertToUserID("12345"), opts)
+			return err
+		}},
+		{"GetPublicProfilePosts", PostExtendedFields, func(c *Client, opts *PostsOptions) error {
+			_, err := c.GetPublicProfilePosts(context.Background(), "someone", opts)
+			return err
+		}},
+		{"GetUserReplies", ReplyFields, func(c *Client, opts *PostsOptions) error {
+			_, err := c.GetUserReplies(context.Background(), ConvertToUserID("12345"), opts)
+			return err
+		}},
+	}
+	for _, tc := range calls {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = append(got, r.URL.Query().Get("fields"))
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"data": [], "paging": {}}`))
+			}))
+
+			if err := tc.call(client, nil); err != nil {
+				t.Fatalf("default fields: %v", err)
+			}
+			if err := tc.call(client, &PostsOptions{Fields: []string{"id", "text"}}); err != nil {
+				t.Fatalf("chosen fields: %v", err)
+			}
+			if len(got) != 2 || got[0] != tc.defaults || got[1] != "id,text" {
+				t.Errorf("fields = %q, want [%q \"id,text\"]", got, tc.defaults)
+			}
+		})
+	}
+}
+
 func TestGetUserPostsWithOptions_NotFound(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found","type":"OAuthException","code":100}}`))
 	disableRetries(client)

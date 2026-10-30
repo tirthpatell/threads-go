@@ -377,6 +377,18 @@ type PostsOptions struct {
 	After  string `json:"after,omitempty"`
 	Since  int64  `json:"since,omitempty"` // Unix timestamp
 	Until  int64  `json:"until,omitempty"` // Unix timestamp
+	// Fields lists the post fields to request. Empty requests the method's
+	// default set. A field the app lacks the permission for fails the request.
+	Fields []string `json:"fields,omitempty"`
+}
+
+// fields returns the comma-separated fields to request, or defaults when
+// opts sets none.
+func (opts *PostsOptions) fields(defaults string) string {
+	if opts == nil || len(opts.Fields) == 0 {
+		return defaults
+	}
+	return strings.Join(opts.Fields, ",")
 }
 
 // RepliesOptions represents options for replies and conversation requests
