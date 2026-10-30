@@ -2,6 +2,7 @@ package threads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -728,8 +729,13 @@ func TestWaitForContainerReady_Error(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{"id":"c1","status":"ERROR","error_message":"upload failed"}`))
 
 	err := client.waitForContainerReady(context.Background(), ConvertToContainerID("c1"), 3, 10*time.Millisecond)
-	if err == nil {
-		t.Fatal("expected error for container error status")
+	var containerErr *ContainerError
+	if !errors.As(err, &containerErr) {
+		t.Fatalf("expected *ContainerError, got %T: %v", err, err)
+	}
+	want := ContainerError{ContainerID: "c1", Status: ContainerStatusError, Message: "upload failed"}
+	if *containerErr != want {
+		t.Errorf("ContainerError = %+v, want %+v", *containerErr, want)
 	}
 	if !strings.Contains(err.Error(), "upload failed") {
 		t.Errorf("expected error message about upload failure, got: %v", err)
@@ -743,7 +749,7 @@ func TestWaitForContainerReady_ErrorNoMessage(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for container error status")
 	}
-	if !strings.Contains(err.Error(), "container processing failed with error status") {
+	if !strings.Contains(err.Error(), "processing failed with error status") {
 		t.Errorf("expected generic error message, got: %v", err)
 	}
 }
@@ -752,8 +758,13 @@ func TestWaitForContainerReady_Expired(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `{"id":"c1","status":"EXPIRED"}`))
 
 	err := client.waitForContainerReady(context.Background(), ConvertToContainerID("c1"), 3, 10*time.Millisecond)
-	if err == nil {
-		t.Fatal("expected error for expired container")
+	var containerErr *ContainerError
+	if !errors.As(err, &containerErr) {
+		t.Fatalf("expected *ContainerError, got %T: %v", err, err)
+	}
+	want := ContainerError{ContainerID: "c1", Status: ContainerStatusExpired}
+	if *containerErr != want {
+		t.Errorf("ContainerError = %+v, want %+v", *containerErr, want)
 	}
 	if !strings.Contains(err.Error(), "expired") {
 		t.Errorf("expected expired error, got: %v", err)
@@ -827,6 +838,26 @@ func TestCreateImagePost_ContainerCreateError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to create image container") {
 		t.Errorf("expected image container error, got: %v", err)
+	}
+}
+
+func TestCreateImagePost_ContainerFailed(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "POST" {
+			_, _ = w.Write([]byte(`{"id":"c1"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"c1","status":"ERROR","error_message":"unsupported format"}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	_, err := client.CreateImagePost(context.Background(), &ImagePostContent{
+		ImageURL: "https://example.com/img.jpg",
+	})
+	if !IsContainerError(err) {
+		t.Fatalf("expected ContainerError, got %T: %v", err, err)
 	}
 }
 
