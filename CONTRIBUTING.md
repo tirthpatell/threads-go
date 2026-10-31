@@ -27,9 +27,6 @@ export THREADS_ACCESS_TOKEN="your-token"
 # Run tests
 go test -short ./...
 go test -short -race ./...
-
-# Run integration tests (requires credentials)
-go test ./tests/integration/...
 ```
 
 ## Code Guidelines
