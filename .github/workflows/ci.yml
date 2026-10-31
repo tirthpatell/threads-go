@@ -57,7 +57,7 @@ jobs:
 
     - name: Run tests with coverage
       # -coverpkg scopes coverage to the library package only, excluding
-      # examples/ and tests/integration/ which have no unit tests and
+      # examples/ which have no unit tests and
       # would otherwise drag the reported percentage down.
       run: go test -short -race -coverprofile=coverage.out -coverpkg=github.com/tirthpatell/threads-go ./...
 

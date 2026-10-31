@@ -37,7 +37,6 @@ secrets/
 
 # Local test files
 *_local_test.go
-integration_local_test.go
 
 # Build
 dist/
