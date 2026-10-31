@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1185,9 +1186,19 @@ func TestPublishContainer_EmptyPostID(t *testing.T) {
 	}
 }
 
-// madeWithAIHandler serves the create → status → publish → fetch flow and
-// records the is_made_with_ai value sent on each container creation request.
-func madeWithAIHandler(t *testing.T, mu *sync.Mutex, seen *[]string) http.HandlerFunc {
+// madeWithAIRecorder captures the container creation forms and publish calls
+// seen by madeWithAIHandler.
+type madeWithAIRecorder struct {
+	mu           sync.Mutex
+	creates      []url.Values
+	publishCalls int
+}
+
+// madeWithAIHandler serves the create → status → publish → fetch flow. When
+// auto_publish_text=true is sent it answers the creation request with the post
+// ID directly, as the API does, so a client that skipped the direct-publish
+// path would fail on the follow-up fetch.
+func madeWithAIHandler(t *testing.T, rec *madeWithAIRecorder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -1198,14 +1209,21 @@ func madeWithAIHandler(t *testing.T, mu *sync.Mutex, seen *[]string) http.Handle
 			if _, ok := r.Form["is_made_with_ai"]; ok {
 				t.Error("is_made_with_ai must not be sent on threads_publish")
 			}
+			rec.mu.Lock()
+			rec.publishCalls++
+			rec.mu.Unlock()
 			_, _ = w.Write([]byte(`{"id":"post_1"}`))
 		case r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/12345/threads"):
 			if err := r.ParseForm(); err != nil {
 				t.Errorf("failed to parse create form: %v", err)
 			}
-			mu.Lock()
-			*seen = append(*seen, r.Form.Get("is_made_with_ai"))
-			mu.Unlock()
+			rec.mu.Lock()
+			rec.creates = append(rec.creates, r.Form)
+			rec.mu.Unlock()
+			if r.Form.Get("auto_publish_text") == "true" {
+				_, _ = w.Write([]byte(`{"id":"post_1"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"id":"container_1"}`))
 		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/container_1"):
 			_, _ = w.Write([]byte(`{"id":"container_1","status":"FINISHED"}`))
@@ -1222,26 +1240,27 @@ func madeWithAIHandler(t *testing.T, mu *sync.Mutex, seen *[]string) http.Handle
 
 func TestCreatePosts_IsMadeWithAI(t *testing.T) {
 	tests := []struct {
-		name   string
-		create func(ctx context.Context, c *Client, ai bool) error
+		name        string
+		autoPublish bool
+		create      func(ctx context.Context, c *Client, ai bool) error
 	}{
-		{"text", func(ctx context.Context, c *Client, ai bool) error {
+		{"text", false, func(ctx context.Context, c *Client, ai bool) error {
 			_, err := c.CreateTextPost(ctx, &TextPostContent{Text: "Hello", IsMadeWithAI: ai})
 			return err
 		}},
-		{"text auto-publish", func(ctx context.Context, c *Client, ai bool) error {
+		{"text auto-publish", true, func(ctx context.Context, c *Client, ai bool) error {
 			_, err := c.CreateTextPost(ctx, &TextPostContent{Text: "Hello", AutoPublishText: true, IsMadeWithAI: ai})
 			return err
 		}},
-		{"image", func(ctx context.Context, c *Client, ai bool) error {
+		{"image", false, func(ctx context.Context, c *Client, ai bool) error {
 			_, err := c.CreateImagePost(ctx, &ImagePostContent{ImageURL: "https://example.com/a.jpg", IsMadeWithAI: ai})
 			return err
 		}},
-		{"video", func(ctx context.Context, c *Client, ai bool) error {
+		{"video", false, func(ctx context.Context, c *Client, ai bool) error {
 			_, err := c.CreateVideoPost(ctx, &VideoPostContent{VideoURL: "https://example.com/a.mp4", IsMadeWithAI: ai})
 			return err
 		}},
-		{"carousel", func(ctx context.Context, c *Client, ai bool) error {
+		{"carousel", false, func(ctx context.Context, c *Client, ai bool) error {
 			_, err := c.CreateCarouselPost(ctx, &CarouselPostContent{Children: []string{"child_1", "child_2"}, IsMadeWithAI: ai})
 			return err
 		}},
@@ -1254,21 +1273,32 @@ func TestCreatePosts_IsMadeWithAI(t *testing.T) {
 				want = "true"
 			}
 			t.Run(fmt.Sprintf("%s/%v", tt.name, ai), func(t *testing.T) {
-				var mu sync.Mutex
-				var seen []string
-				client := testClient(t, madeWithAIHandler(t, &mu, &seen))
+				rec := &madeWithAIRecorder{}
+				client := testClient(t, madeWithAIHandler(t, rec))
 
 				if err := tt.create(context.Background(), client, ai); err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
 
-				mu.Lock()
-				defer mu.Unlock()
-				if len(seen) != 1 {
-					t.Fatalf("expected 1 container creation request, got %d", len(seen))
+				rec.mu.Lock()
+				defer rec.mu.Unlock()
+				if len(rec.creates) != 1 {
+					t.Fatalf("expected 1 container creation request, got %d", len(rec.creates))
 				}
-				if seen[0] != want {
-					t.Errorf("expected is_made_with_ai=%q, got %q", want, seen[0])
+				form := rec.creates[0]
+				if got := form.Get("is_made_with_ai"); got != want {
+					t.Errorf("expected is_made_with_ai=%q, got %q", want, got)
+				}
+
+				if tt.autoPublish {
+					if got := form.Get("auto_publish_text"); got != "true" {
+						t.Errorf("expected auto_publish_text=true, got %q", got)
+					}
+					if rec.publishCalls != 0 {
+						t.Errorf("expected no threads_publish call on direct-publish path, got %d", rec.publishCalls)
+					}
+				} else if rec.publishCalls != 1 {
+					t.Errorf("expected 1 threads_publish call, got %d", rec.publishCalls)
 				}
 			})
 		}
