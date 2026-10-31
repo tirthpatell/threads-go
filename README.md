@@ -14,7 +14,7 @@ Requires Go 1.21+. Tested on Go 1.21-1.24.
 ## Features
 
 - Complete API coverage (posts, users, replies, insights, locations, search)
-- GIF attachments (GIPHY), ghost posts, and reply approvals
+- GIF attachments (GIPHY), ghost posts, reply approvals, and AI-generated content labels
 - Fluent `ContainerBuilder` for advanced post creation
 - OAuth 2.0 flow and existing token support
 - Intelligent rate limiting with exponential backoff
@@ -221,6 +221,19 @@ ghost, err := client.CreateTextPost(ctx, &threads.TextPostContent{
 ghosts, err := client.GetUserGhostPosts(ctx, userID, nil)
 ```
 
+### AI-Generated Content Label
+
+```go
+// Show the "AI info" label on the published post.
+// Supported on text, image, video, and carousel posts.
+post, err := client.CreateImagePost(ctx, &threads.ImagePostContent{
+    ImageURL:     "https://example.com/generated.jpg",
+    IsMadeWithAI: true,
+})
+```
+
+> For carousels, set `IsMadeWithAI` on `CarouselPostContent` (the parent), not on individual items.
+
 ### Reply Approvals
 
 ```go
@@ -318,12 +331,7 @@ Error types: `AuthenticationError`, `RateLimitError`, `ValidationError`, `Networ
 ## Testing
 
 ```bash
-# Unit tests
 go test ./...
-
-# Integration tests (requires valid credentials)
-export THREADS_ACCESS_TOKEN="your-token"
-go test ./tests/integration/...
 ```
 
 ## Contributing

@@ -2,8 +2,10 @@ package threads
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1180,5 +1182,95 @@ func TestPublishContainer_EmptyPostID(t *testing.T) {
 	_, err := client.publishContainer(context.Background(), "container_1")
 	if err == nil {
 		t.Fatal("expected error for empty post ID in response")
+	}
+}
+
+// madeWithAIHandler serves the create → status → publish → fetch flow and
+// records the is_made_with_ai value sent on each container creation request.
+func madeWithAIHandler(t *testing.T, mu *sync.Mutex, seen *[]string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/12345/threads_publish"):
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("failed to parse publish form: %v", err)
+			}
+			if _, ok := r.Form["is_made_with_ai"]; ok {
+				t.Error("is_made_with_ai must not be sent on threads_publish")
+			}
+			_, _ = w.Write([]byte(`{"id":"post_1"}`))
+		case r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/12345/threads"):
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("failed to parse create form: %v", err)
+			}
+			mu.Lock()
+			*seen = append(*seen, r.Form.Get("is_made_with_ai"))
+			mu.Unlock()
+			_, _ = w.Write([]byte(`{"id":"container_1"}`))
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/container_1"):
+			_, _ = w.Write([]byte(`{"id":"container_1","status":"FINISHED"}`))
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/child_"):
+			id := strings.TrimPrefix(r.URL.Path, "/")
+			_, _ = w.Write([]byte(`{"id":"` + id + `","status":"FINISHED"}`))
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/post_1"):
+			_, _ = w.Write([]byte(`{"id":"post_1","media_type":"TEXT"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}
+}
+
+func TestCreatePosts_IsMadeWithAI(t *testing.T) {
+	tests := []struct {
+		name   string
+		create func(ctx context.Context, c *Client, ai bool) error
+	}{
+		{"text", func(ctx context.Context, c *Client, ai bool) error {
+			_, err := c.CreateTextPost(ctx, &TextPostContent{Text: "Hello", IsMadeWithAI: ai})
+			return err
+		}},
+		{"text auto-publish", func(ctx context.Context, c *Client, ai bool) error {
+			_, err := c.CreateTextPost(ctx, &TextPostContent{Text: "Hello", AutoPublishText: true, IsMadeWithAI: ai})
+			return err
+		}},
+		{"image", func(ctx context.Context, c *Client, ai bool) error {
+			_, err := c.CreateImagePost(ctx, &ImagePostContent{ImageURL: "https://example.com/a.jpg", IsMadeWithAI: ai})
+			return err
+		}},
+		{"video", func(ctx context.Context, c *Client, ai bool) error {
+			_, err := c.CreateVideoPost(ctx, &VideoPostContent{VideoURL: "https://example.com/a.mp4", IsMadeWithAI: ai})
+			return err
+		}},
+		{"carousel", func(ctx context.Context, c *Client, ai bool) error {
+			_, err := c.CreateCarouselPost(ctx, &CarouselPostContent{Children: []string{"child_1", "child_2"}, IsMadeWithAI: ai})
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		for _, ai := range []bool{true, false} {
+			want := ""
+			if ai {
+				want = "true"
+			}
+			t.Run(fmt.Sprintf("%s/%v", tt.name, ai), func(t *testing.T) {
+				var mu sync.Mutex
+				var seen []string
+				client := testClient(t, madeWithAIHandler(t, &mu, &seen))
+
+				if err := tt.create(context.Background(), client, ai); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+
+				mu.Lock()
+				defer mu.Unlock()
+				if len(seen) != 1 {
+					t.Fatalf("expected 1 container creation request, got %d", len(seen))
+				}
+				if seen[0] != want {
+					t.Errorf("expected is_made_with_ai=%q, got %q", want, seen[0])
+				}
+			})
+		}
 	}
 }

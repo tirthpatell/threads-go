@@ -173,6 +173,9 @@ type TextPostContent struct {
 	IsGhostPost bool `json:"is_ghost_post,omitempty"`
 	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
 	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
+	// IsMadeWithAI labels the post as containing AI-generated content (shows the "AI info" label).
+	// Leaving it false adds no self-disclosure but does not prevent Meta's automatic AI labeling.
+	IsMadeWithAI bool `json:"is_made_with_ai,omitempty"`
 }
 
 // ImagePostContent represents content for image posts.
@@ -196,6 +199,9 @@ type ImagePostContent struct {
 	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
 	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
 	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
+	// IsMadeWithAI labels the post as containing AI-generated content (shows the "AI info" label).
+	// Leaving it false adds no self-disclosure but does not prevent Meta's automatic AI labeling.
+	IsMadeWithAI bool `json:"is_made_with_ai,omitempty"`
 }
 
 // VideoPostContent represents content for video posts.
@@ -219,6 +225,9 @@ type VideoPostContent struct {
 	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
 	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
 	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
+	// IsMadeWithAI labels the post as containing AI-generated content (shows the "AI info" label).
+	// Leaving it false adds no self-disclosure but does not prevent Meta's automatic AI labeling.
+	IsMadeWithAI bool `json:"is_made_with_ai,omitempty"`
 }
 
 // CarouselPostContent represents content for carousel posts.
@@ -241,6 +250,9 @@ type CarouselPostContent struct {
 	IsSpoilerMedia bool `json:"is_spoiler_media,omitempty"`
 	// EnableReplyApprovals enables reply approvals on the post; replies must be approved before publishing
 	EnableReplyApprovals bool `json:"enable_reply_approvals,omitempty"`
+	// IsMadeWithAI labels the post as containing AI-generated content (shows the "AI info" label).
+	// Leaving it false adds no self-disclosure but does not prevent Meta's automatic AI labeling.
+	IsMadeWithAI bool `json:"is_made_with_ai,omitempty"`
 }
 
 // ReplyControl defines who can reply to a post

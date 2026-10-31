@@ -160,10 +160,13 @@ func (b *ContainerBuilder) SetAutoPublishText(autoPublish bool) *ContainerBuilde
 	return b
 }
 
-// SetIsCarouselItem marks this as a carousel item
+// SetIsCarouselItem marks this as a carousel item.
+// Any previously set is_made_with_ai flag is cleared, since the API rejects
+// the AI label on individual carousel items (set it on the parent instead).
 func (b *ContainerBuilder) SetIsCarouselItem(isCarouselItem bool) *ContainerBuilder {
 	if isCarouselItem {
 		b.params.Set("is_carousel_item", "true")
+		b.params.Del("is_made_with_ai")
 	}
 	return b
 }
@@ -239,6 +242,23 @@ func (b *ContainerBuilder) SetIsGhostPost(isGhostPost bool) *ContainerBuilder {
 func (b *ContainerBuilder) SetEnableReplyApprovals(enable bool) *ContainerBuilder {
 	if enable {
 		b.params.Set("enable_reply_approvals", "true")
+	}
+	return b
+}
+
+// SetIsMadeWithAI labels the post as containing AI-generated content, which
+// displays the "AI info" label on the published post. Supported for TEXT,
+// IMAGE, VIDEO, and CAROUSEL containers. For carousels, set it on the parent
+// container only; the call is silently ignored on carousel items because the
+// API returns an error for them.
+func (b *ContainerBuilder) SetIsMadeWithAI(isMadeWithAI bool) *ContainerBuilder {
+	if isMadeWithAI {
+		if b.params.Get("is_carousel_item") == "true" {
+			return b
+		}
+		b.params.Set("is_made_with_ai", "true")
+	} else {
+		b.params.Del("is_made_with_ai")
 	}
 	return b
 }

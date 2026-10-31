@@ -93,3 +93,63 @@ func TestContainerBuilder_SetIsGhostPost_False_NotSet(t *testing.T) {
 		t.Error("expected is_ghost_post to not be set when isGhostPost=false")
 	}
 }
+
+func TestContainerBuilder_SetIsMadeWithAI(t *testing.T) {
+	for _, mediaType := range []string{MediaTypeText, MediaTypeImage, MediaTypeVideo, MediaTypeCarousel} {
+		params := NewContainerBuilder().
+			SetMediaType(mediaType).
+			SetIsMadeWithAI(true).
+			Build()
+
+		if params.Get("is_made_with_ai") != "true" {
+			t.Errorf("expected is_made_with_ai to be set for %s media type", mediaType)
+		}
+	}
+}
+
+func TestContainerBuilder_SetIsMadeWithAI_FalseOmitsParam(t *testing.T) {
+	params := NewContainerBuilder().
+		SetMediaType(MediaTypeText).
+		SetIsMadeWithAI(false).
+		Build()
+
+	if _, ok := params["is_made_with_ai"]; ok {
+		t.Error("expected is_made_with_ai to be omitted when false")
+	}
+}
+
+func TestContainerBuilder_SetIsMadeWithAI_ToggleTrueToFalse(t *testing.T) {
+	params := NewContainerBuilder().
+		SetMediaType(MediaTypeText).
+		SetIsMadeWithAI(true).
+		SetIsMadeWithAI(false).
+		Build()
+
+	if params.Get("is_made_with_ai") != "" {
+		t.Error("expected is_made_with_ai to be cleared after toggling to false")
+	}
+}
+
+func TestContainerBuilder_SetIsMadeWithAI_CarouselItem_Ignored(t *testing.T) {
+	params := NewContainerBuilder().
+		SetMediaType(MediaTypeImage).
+		SetIsCarouselItem(true).
+		SetIsMadeWithAI(true).
+		Build()
+
+	if params.Get("is_made_with_ai") != "" {
+		t.Error("expected is_made_with_ai to be ignored for carousel items")
+	}
+}
+
+func TestContainerBuilder_SetIsMadeWithAI_ThenCarouselItem_Cleared(t *testing.T) {
+	params := NewContainerBuilder().
+		SetMediaType(MediaTypeImage).
+		SetIsMadeWithAI(true).
+		SetIsCarouselItem(true).
+		Build()
+
+	if params.Get("is_made_with_ai") != "" {
+		t.Error("expected is_made_with_ai to be cleared when marked as a carousel item")
+	}
+}
