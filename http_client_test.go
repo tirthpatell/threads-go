@@ -695,3 +695,96 @@ func TestClientMethodsUseCallerContext(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPClient_ContextErrorsAreNotTemporary(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelExpired()
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"canceled", cancelled, context.Canceled},
+		{"deadline", expired, context.DeadlineExceeded},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var attempts int32
+			httpClient := newTestHTTPClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&attempts, 1)
+			}), &RetryConfig{MaxRetries: 3, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2.0})
+
+			start := time.Now()
+			_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/test", Context: tt.ctx}, "token")
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("errors.Is(err, %v) = false, err: %v", tt.want, err)
+			}
+			var netErr *NetworkError
+			if !errors.As(err, &netErr) {
+				t.Fatalf("expected *NetworkError, got %T", err)
+			}
+			if netErr.Temporary {
+				t.Error("context error marked temporary")
+			}
+			if n := atomic.LoadInt32(&attempts); n != 0 {
+				t.Errorf("server saw %d requests, want 0", n)
+			}
+			if d := time.Since(start); d > 500*time.Millisecond {
+				t.Errorf("retry loop did not stop at once: %v", d)
+			}
+		})
+	}
+}
+
+func TestHTTPClient_DeadlineDuringRequestStopsRetries(t *testing.T) {
+	var attempts int32
+	release := make(chan struct{})
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}), &RetryConfig{MaxRetries: 3, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0})
+	t.Cleanup(func() { close(release) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/test", Context: ctx}, "token")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("errors.Is(err, DeadlineExceeded) = false, err: %v", err)
+	}
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) || netErr.Temporary {
+		t.Fatalf("want non-temporary *NetworkError, got %#v", err)
+	}
+	if n := atomic.LoadInt32(&attempts); n != 1 {
+		t.Errorf("server saw %d requests, want 1", n)
+	}
+}
+
+type timeoutError struct{}
+
+func (timeoutError) Error() string   { return "i/o timeout" }
+func (timeoutError) Timeout() bool   { return true }
+func (timeoutError) Temporary() bool { return true }
+
+func TestHTTPClient_TransportTimeoutWithLiveContextStaysTemporary(t *testing.T) {
+	httpClient := newTestHTTPClient(t, http.NotFoundHandler(), nil)
+
+	err := httpClient.wrapNetworkError(&url.Error{Op: "Get", URL: "http://example.com", Err: timeoutError{}})
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T", err)
+	}
+	if !netErr.Temporary {
+		t.Error("transport timeout marked permanent")
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Error("transport timeout reports context.DeadlineExceeded")
+	}
+}

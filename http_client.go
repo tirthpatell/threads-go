@@ -530,6 +530,10 @@ func isNonRetryablePermanentErrorCode(code int) bool {
 func (h *HTTPClient) wrapNetworkError(err error) error {
 	err = sanitizeNetworkError(err)
 
+	if isContextError(err) {
+		return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
+	}
+
 	// Check for timeout errors
 	if timeoutErr, ok := err.(interface{ Timeout() bool }); ok && timeoutErr.Timeout() {
 		return NewNetworkErrorWithCause(0, "Request timeout", err.Error(), true, err)
@@ -542,6 +546,13 @@ func (h *HTTPClient) wrapNetworkError(err error) error {
 
 	// Default to permanent network error
 	return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
+}
+
+// isContextError reports whether err comes from a cancelled or expired
+// context. A retry with the same context fails again, so such an error is
+// never temporary.
+func isContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // sanitizeNetworkError preserves the error chain while redacting credentials
