@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -1160,5 +1161,25 @@ func TestTokenMethods_ContextErrorKeepsCause(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestGetAppAccessToken_HTTPTimeoutWithLiveContextRetries(t *testing.T) {
+	var attempts int32
+	config := testClientConfig(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		<-r.Context().Done()
+	}))
+	config.HTTPTimeout = 50 * time.Millisecond
+	config.RetryConfig = &RetryConfig{MaxRetries: 2, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0}
+	client := testClientWithConfig(t, config)
+
+	_, err := client.GetAppAccessToken(context.Background())
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) || !netErr.Temporary {
+		t.Fatalf("want temporary *NetworkError, got %#v", err)
+	}
+	if n := atomic.LoadInt32(&attempts); n != 3 {
+		t.Errorf("server saw %d requests, want 3", n)
 	}
 }

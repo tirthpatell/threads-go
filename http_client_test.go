@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync/atomic"
@@ -261,7 +262,7 @@ func TestWrapNetworkError_Timeout(t *testing.T) {
 	}
 	// Create a timeout error
 	timeoutErr := &net.DNSError{IsTimeout: true}
-	wrapped := httpClient.wrapNetworkError(timeoutErr)
+	wrapped := httpClient.wrapNetworkError(context.Background(), timeoutErr)
 	var netErr *NetworkError
 	if !errors.As(wrapped, &netErr) {
 		t.Fatalf("expected NetworkError, got %T", wrapped)
@@ -275,7 +276,7 @@ func TestWrapNetworkError_Generic(t *testing.T) {
 	httpClient := &HTTPClient{
 		logger: &noopLogger{},
 	}
-	wrapped := httpClient.wrapNetworkError(errors.New("some network problem"))
+	wrapped := httpClient.wrapNetworkError(context.Background(), errors.New("some network problem"))
 	var netErr *NetworkError
 	if !errors.As(wrapped, &netErr) {
 		t.Fatalf("expected NetworkError, got %T", wrapped)
@@ -293,7 +294,7 @@ func TestWrapNetworkError_RedactsSensitiveQueryValues(t *testing.T) {
 		Err: errors.New("connection refused"),
 	}
 
-	wrapped := httpClient.wrapNetworkError(original)
+	wrapped := httpClient.wrapNetworkError(context.Background(), original)
 	for _, secret := range []string{"INPUT-SECRET", "ACCESS-SECRET"} {
 		if strings.Contains(wrapped.Error(), secret) {
 			t.Fatalf("network error exposed %q: %v", secret, wrapped)
@@ -767,24 +768,26 @@ func TestHTTPClient_DeadlineDuringRequestStopsRetries(t *testing.T) {
 	}
 }
 
-type timeoutError struct{}
+func TestHTTPClient_HTTPTimeoutWithLiveContextRetries(t *testing.T) {
+	var attempts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		<-r.Context().Done()
+	}))
+	t.Cleanup(server.Close)
+	httpClient := NewHTTPClient(&Config{
+		HTTPTimeout: 50 * time.Millisecond,
+		Logger:      &noopLogger{},
+		RetryConfig: &RetryConfig{MaxRetries: 2, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0},
+		BaseURL:     server.URL,
+	}, nil)
 
-func (timeoutError) Error() string   { return "i/o timeout" }
-func (timeoutError) Timeout() bool   { return true }
-func (timeoutError) Temporary() bool { return true }
-
-func TestHTTPClient_TransportTimeoutWithLiveContextStaysTemporary(t *testing.T) {
-	httpClient := newTestHTTPClient(t, http.NotFoundHandler(), nil)
-
-	err := httpClient.wrapNetworkError(&url.Error{Op: "Get", URL: "http://example.com", Err: timeoutError{}})
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/test", Context: context.Background()}, "token")
 	var netErr *NetworkError
-	if !errors.As(err, &netErr) {
-		t.Fatalf("expected *NetworkError, got %T", err)
+	if !errors.As(err, &netErr) || !netErr.Temporary {
+		t.Fatalf("want temporary *NetworkError, got %#v", err)
 	}
-	if !netErr.Temporary {
-		t.Error("transport timeout marked permanent")
-	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		t.Error("transport timeout reports context.DeadlineExceeded")
+	if n := atomic.LoadInt32(&attempts); n != 3 {
+		t.Errorf("server saw %d requests, want 3", n)
 	}
 }

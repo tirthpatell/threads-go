@@ -143,7 +143,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 
 	resp, err := c.httpClient.POSTWithConfig(ctx, "/oauth/access_token", data, "", st.http)
 	if err != nil {
-		return tokenRequestError("Failed to exchange code for token", err)
+		return tokenRequestError(ctx, "Failed to exchange code for token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -213,7 +213,7 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 
 	resp, err := c.httpClient.GETWithConfig(ctx, "/access_token", params, currentToken, st.http)
 	if err != nil {
-		return tokenRequestError("Failed to get long-lived token", err)
+		return tokenRequestError(ctx, "Failed to get long-lived token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -290,7 +290,7 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 
 	resp, err := c.httpClient.GETWithConfig(ctx, "/refresh_access_token", params, "", st.http)
 	if err != nil {
-		return tokenRequestError("Failed to refresh token", err)
+		return tokenRequestError(ctx, "Failed to refresh token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -347,10 +347,9 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 }
 
 // tokenRequestError keeps err as the cause, so errors.Is still finds
-// context.Canceled and context.DeadlineExceeded. A cancelled or expired
-// context is not temporary.
-func tokenRequestError(message string, err error) *NetworkError {
-	return NewNetworkErrorWithCause(0, message, err.Error(), !isContextError(err), err)
+// context.Canceled and context.DeadlineExceeded.
+func tokenRequestError(ctx context.Context, message string, err error) *NetworkError {
+	return NewNetworkErrorWithCause(0, message, err.Error(), !contextDone(ctx), err)
 }
 
 // handleTokenError processes token-related API errors
@@ -571,7 +570,7 @@ func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse
 
 	resp, err := c.httpClient.GETWithConfig(ctx, "/oauth/access_token", params, "", st.http)
 	if err != nil {
-		return nil, tokenRequestError("Failed to get app access token", err)
+		return nil, tokenRequestError(ctx, "Failed to get app access token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

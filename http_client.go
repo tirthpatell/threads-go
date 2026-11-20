@@ -313,7 +313,7 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, re
 	// Execute request
 	httpResp, err := requestConfig.client.Do(req)
 	if err != nil {
-		return nil, h.wrapNetworkError(err)
+		return nil, h.wrapNetworkError(opts.Context, err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -527,10 +527,10 @@ func isNonRetryablePermanentErrorCode(code int) bool {
 // wrapNetworkError wraps network errors with appropriate error types.
 // The original error is preserved as the Cause, so errors.Is/errors.As
 // can inspect it (e.g., to detect context.Canceled).
-func (h *HTTPClient) wrapNetworkError(err error) error {
+func (h *HTTPClient) wrapNetworkError(ctx context.Context, err error) error {
 	err = sanitizeNetworkError(err)
 
-	if isContextError(err) {
+	if contextDone(ctx) {
 		return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
 	}
 
@@ -548,11 +548,12 @@ func (h *HTTPClient) wrapNetworkError(err error) error {
 	return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
 }
 
-// isContextError reports whether err comes from a cancelled or expired
-// context. A retry with the same context fails again, so such an error is
-// never temporary.
-func isContextError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+// contextDone reports whether the caller's ctx has ended. A retry with the
+// same ctx fails again, so a request error is then never temporary. The error
+// alone cannot decide this: the error of an http.Client.Timeout also matches
+// context.DeadlineExceeded while ctx is still live.
+func contextDone(ctx context.Context) bool {
+	return ctx.Err() != nil
 }
 
 // sanitizeNetworkError preserves the error chain while redacting credentials
