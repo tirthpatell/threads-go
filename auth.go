@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -349,10 +348,9 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 
 // tokenRequestError keeps err as the cause, so errors.Is still finds
 // context.Canceled and context.DeadlineExceeded. A cancelled or expired
-// context is not temporary: a retry with the same context fails again.
+// context is not temporary.
 func tokenRequestError(message string, err error) *NetworkError {
-	temporary := !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
-	return NewNetworkErrorWithCause(0, message, err.Error(), temporary, err)
+	return NewNetworkErrorWithCause(0, message, err.Error(), !isContextError(err), err)
 }
 
 // handleTokenError processes token-related API errors
