@@ -2,6 +2,7 @@ package threads
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1110,6 +1111,54 @@ func TestNewClient_NormalizesTokenTypeFromStorage(t *testing.T) {
 		}
 		if got := client.GetTokenDebugInfo()["token_type"]; got != TokenTypeBearer {
 			t.Errorf("stored %q: debug info gave %q, want %q", stored, got, TokenTypeBearer)
+		}
+	}
+}
+
+func TestTokenMethods_ContextErrorKeepsCause(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelExpired()
+
+	methods := []struct {
+		name string
+		call func(ctx context.Context, c *Client) error
+	}{
+		{"RefreshToken", func(ctx context.Context, c *Client) error { return c.RefreshToken(ctx) }},
+		{"GetAppAccessToken", func(ctx context.Context, c *Client) error {
+			_, err := c.GetAppAccessToken(ctx)
+			return err
+		}},
+	}
+	contexts := []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"canceled", cancelled, context.Canceled},
+		{"deadline", expired, context.DeadlineExceeded},
+	}
+
+	for _, m := range methods {
+		for _, c := range contexts {
+			t.Run(m.name+"/"+c.name, func(t *testing.T) {
+				client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					t.Error("request reached the server despite a done context")
+				}))
+
+				err := m.call(c.ctx, client)
+				if !errors.Is(err, c.want) {
+					t.Fatalf("errors.Is(err, %v) = false, err: %v", c.want, err)
+				}
+				var netErr *NetworkError
+				if !errors.As(err, &netErr) {
+					t.Fatalf("expected *NetworkError, got %T", err)
+				}
+				if netErr.Temporary {
+					t.Error("context error marked temporary")
+				}
+			})
 		}
 	}
 }

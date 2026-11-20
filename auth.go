@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -143,7 +144,7 @@ func (c *Client) ExchangeCodeForToken(ctx context.Context, code, expectedState, 
 
 	resp, err := c.httpClient.POSTWithConfig(ctx, "/oauth/access_token", data, "", st.http)
 	if err != nil {
-		return NewNetworkError(0, "Failed to exchange code for token", err.Error(), true)
+		return tokenRequestError("Failed to exchange code for token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -213,7 +214,7 @@ func (c *Client) GetLongLivedToken(ctx context.Context) error {
 
 	resp, err := c.httpClient.GETWithConfig(ctx, "/access_token", params, currentToken, st.http)
 	if err != nil {
-		return NewNetworkError(0, "Failed to get long-lived token", err.Error(), true)
+		return tokenRequestError("Failed to get long-lived token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -290,7 +291,7 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 
 	resp, err := c.httpClient.GETWithConfig(ctx, "/refresh_access_token", params, "", st.http)
 	if err != nil {
-		return NewNetworkError(0, "Failed to refresh token", err.Error(), true)
+		return tokenRequestError("Failed to refresh token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -344,6 +345,14 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// tokenRequestError keeps err as the cause, so errors.Is still finds
+// context.Canceled and context.DeadlineExceeded. A cancelled or expired
+// context is not temporary: a retry with the same context fails again.
+func tokenRequestError(message string, err error) *NetworkError {
+	temporary := !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
+	return NewNetworkErrorWithCause(0, message, err.Error(), temporary, err)
 }
 
 // handleTokenError processes token-related API errors
@@ -564,7 +573,7 @@ func (c *Client) GetAppAccessToken(ctx context.Context) (*AppAccessTokenResponse
 
 	resp, err := c.httpClient.GETWithConfig(ctx, "/oauth/access_token", params, "", st.http)
 	if err != nil {
-		return nil, NewNetworkError(0, "Failed to get app access token", err.Error(), true)
+		return nil, tokenRequestError("Failed to get app access token", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
