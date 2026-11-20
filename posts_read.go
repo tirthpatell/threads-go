@@ -80,7 +80,7 @@ func (c *Client) GetUserPostsWithOptions(ctx context.Context, userID UserID, opt
 
 	// Build query parameters with enhanced fields from API documentation
 	params := url.Values{
-		"fields": {PostExtendedFields},
+		"fields": {opts.fields(PostExtendedFields)},
 	}
 
 	// Add pagination and filtering options if provided
@@ -151,7 +151,7 @@ func (c *Client) GetUserMentions(ctx context.Context, userID UserID, opts *Posts
 
 	// Build query parameters
 	params := url.Values{
-		"fields": {PostExtendedFields},
+		"fields": {opts.fields(PostExtendedFields)},
 	}
 
 	// Add pagination and filtering options if provided

@@ -292,6 +292,8 @@ searchIterator := threads.NewSearchIterator(client, "golang", "keyword", &thread
 allPosts, err := iterator.Collect(ctx)
 ```
 
+To fetch fewer fields per post, set `PostsOptions.Fields`, for example `[]string{"id", "permalink", "timestamp"}`. An empty list requests the default set. `GetUserPostsWithOptions`, `GetUserMentions`, `GetPublicProfilePosts` and `GetUserReplies` accept it.
+
 ## Configuration
 
 ```go
