@@ -618,7 +618,7 @@ func (c *Client) GetContainerStatus(ctx context.Context, containerID ContainerID
 }
 
 // waitForContainerReady polls the container status until it's ready to be published
-// Returns an error if the container fails or times out. Respects context cancellation
+// Returns a *ContainerError if the container fails or expires, and an error if it times out. Respects context cancellation
 // by using select with ctx.Done() instead of bare time.Sleep.
 func (c *Client) waitForContainerReady(ctx context.Context, containerID ContainerID, maxAttempts int, pollInterval time.Duration) error {
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -630,13 +630,8 @@ func (c *Client) waitForContainerReady(ctx context.Context, containerID Containe
 		switch status.Status {
 		case ContainerStatusFinished:
 			return nil
-		case ContainerStatusError:
-			if status.ErrorMessage != "" {
-				return fmt.Errorf("container processing failed: %s", status.ErrorMessage)
-			}
-			return fmt.Errorf("container processing failed with error status")
-		case ContainerStatusExpired:
-			return fmt.Errorf("container expired before it could be published")
+		case ContainerStatusError, ContainerStatusExpired:
+			return &ContainerError{ContainerID: containerID.String(), Status: status.Status, Message: status.ErrorMessage}
 		default:
 			select {
 			case <-ctx.Done():
