@@ -171,11 +171,11 @@ type ContainerError struct {
 func (e *ContainerError) Error() string {
 	switch {
 	case e.Status == ContainerStatusExpired:
-		return fmt.Sprintf("container %s expired before it could be published", e.ContainerID)
+		return "container expired before it could be published"
 	case e.Message != "":
-		return fmt.Sprintf("container %s processing failed: %s", e.ContainerID, e.Message)
+		return "container processing failed: " + e.Message
 	default:
-		return fmt.Sprintf("container %s processing failed with error status", e.ContainerID)
+		return "container processing failed with error status"
 	}
 }
 
