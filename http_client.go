@@ -100,8 +100,10 @@ func (h *HTTPClient) updateConfig(config *Config) {
 	allowInsecureBaseURL := false
 	var logger Logger
 	var retryConfig *RetryConfig
+	var customClient *http.Client
 
 	if config != nil {
+		customClient = config.HTTPClient
 		if config.HTTPTimeout > 0 {
 			timeout = config.HTTPTimeout
 		}
@@ -122,7 +124,11 @@ func (h *HTTPClient) updateConfig(config *Config) {
 	}
 
 	h.mu.Lock()
-	h.client = &http.Client{Timeout: timeout}
+	if customClient != nil {
+		h.client = customClient
+	} else {
+		h.client = &http.Client{Timeout: timeout}
+	}
 	h.logger = logger
 	h.retryConfig = retryConfig
 	h.baseURL = strings.TrimRight(baseURL, "/")
