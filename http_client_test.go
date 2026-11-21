@@ -873,3 +873,38 @@ func TestHTTPClient_BodyReadErrorWithLiveContextIsNetworkError(t *testing.T) {
 		t.Errorf("expected io.ErrUnexpectedEOF in chain, got %v", err)
 	}
 }
+
+func TestHTTPClient_StalledBodyOnWriteIsNotRetried(t *testing.T) {
+	var requests atomic.Int32
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("partial"))
+		w.(http.Flusher).Flush()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+	}
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(server.Close)
+	httpClient := NewHTTPClient(&Config{
+		HTTPTimeout: 200 * time.Millisecond,
+		Logger:      &noopLogger{},
+		BaseURL:     server.URL,
+		RetryConfig: &RetryConfig{MaxRetries: 3, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0},
+	}, nil)
+
+	_, err := httpClient.Do(&RequestOptions{Method: "POST", Path: "/body", Context: context.Background()}, "token")
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T: %v", err, err)
+	}
+	if netErr.Temporary {
+		t.Error("a failed body read must not be temporary")
+	}
+	if got := requests.Load(); got != 1 {
+		t.Errorf("server received %d requests, want 1", got)
+	}
+}

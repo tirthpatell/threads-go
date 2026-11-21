@@ -336,7 +336,10 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, re
 	}
 	respBody, err := io.ReadAll(io.LimitReader(httpResp.Body, readLimit))
 	if err != nil {
-		return nil, h.wrapNetworkError(opts.Context, err)
+		// The server already received the request and may have acted on it,
+		// so a failed body read is never temporary and never retried.
+		err = sanitizeNetworkError(err)
+		return nil, NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
 	}
 	if int64(len(respBody)) > requestConfig.maxResponseBodySize {
 		return nil, fmt.Errorf("%w: limit is %d bytes", ErrResponseTooLarge, requestConfig.maxResponseBodySize)
