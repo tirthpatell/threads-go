@@ -294,6 +294,8 @@ searchIterator := threads.NewSearchIterator(client, "golang", "keyword", &thread
 allPosts, err := iterator.Collect(ctx)
 ```
 
+To fetch fewer fields per post, set `PostsOptions.Fields`, for example `[]string{"id", "permalink", "timestamp"}`. An empty list requests the default set. `GetUserPostsWithOptions`, `GetUserMentions`, `GetPublicProfilePosts` and `GetUserReplies` accept it.
+
 ## Configuration
 
 ```go
@@ -304,6 +306,15 @@ config := &threads.Config{
     Scopes:       []string{"threads_basic", "threads_content_publish"},
     HTTPTimeout:  30 * time.Second,
     Debug:        false,
+}
+```
+
+To send requests through your own transport, such as a per-account proxy, set `HTTPClient`. The library uses it as given for every request, including the token endpoints. `HTTPTimeout` does not apply to it, so set the client's own `Timeout` if you need one.
+
+```go
+config.HTTPClient = &http.Client{
+    Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+    Timeout:   30 * time.Second,
 }
 ```
 
@@ -328,7 +339,7 @@ case threads.IsTransientError(err):
 }
 ```
 
-Error types: `AuthenticationError`, `RateLimitError`, `ValidationError`, `NetworkError`, `APIError`
+Error types: `AuthenticationError`, `RateLimitError`, `ValidationError`, `NetworkError`, `APIError`, `ContainerError`. A `ContainerError` means Threads failed to process a media container or let it expire, so publishing it again cannot succeed.
 
 ## Testing
 

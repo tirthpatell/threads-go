@@ -184,3 +184,24 @@ func TestExtractBaseError(t *testing.T) {
 		}
 	})
 }
+
+// The messages match the plain errors returned before ContainerError existed,
+// so callers that match on them keep working.
+func TestContainerErrorError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  ContainerError
+		want string
+	}{
+		{"expired", ContainerError{ContainerID: "c1", Status: ContainerStatusExpired}, "container expired before it could be published"},
+		{"error with message", ContainerError{ContainerID: "c1", Status: ContainerStatusError, Message: "upload failed"}, "container processing failed: upload failed"},
+		{"error without message", ContainerError{ContainerID: "c1", Status: ContainerStatusError}, "container processing failed with error status"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.err.Error(); got != tt.want {
+				t.Errorf("Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

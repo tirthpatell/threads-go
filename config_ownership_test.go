@@ -2,6 +2,7 @@ package threads
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -475,5 +476,146 @@ func TestRefreshTokenUsesCoupledSnapshot(t *testing.T) {
 
 	if total := atomic.LoadInt32(&seenA) + atomic.LoadInt32(&seenB); total != 200 {
 		t.Errorf("expected 200 refresh requests, got %d", total)
+	}
+}
+
+// recordingTransport records every request and answers with a canned JSON body.
+type recordingTransport struct {
+	mu       sync.Mutex
+	requests []*http.Request
+	body     string
+}
+
+func (rt *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt.mu.Lock()
+	rt.requests = append(rt.requests, req)
+	rt.mu.Unlock()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(rt.body)),
+		Request:    req,
+	}, nil
+}
+
+func (rt *recordingTransport) paths() []string {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	paths := make([]string, 0, len(rt.requests))
+	for _, req := range rt.requests {
+		paths = append(paths, req.URL.Path)
+	}
+	return paths
+}
+
+func TestConfigHTTPClientTransportSeesRequests(t *testing.T) {
+	transport := &recordingTransport{body: `{"id":"12345","username":"testuser"}`}
+	supplied := &http.Client{Transport: transport}
+
+	config := baseTestConfig()
+	config.HTTPClient = supplied
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	setToken := func() {
+		t.Helper()
+		if err := client.SetTokenInfo(&TokenInfo{
+			AccessToken: "test-access-token",
+			TokenType:   TokenTypeBearer,
+			ExpiresAt:   time.Now().Add(24 * time.Hour),
+			UserID:      "12345",
+			CreatedAt:   time.Now(),
+		}); err != nil {
+			t.Fatalf("SetTokenInfo: %v", err)
+		}
+	}
+	setToken()
+
+	t.Run("api call", func(t *testing.T) {
+		user, err := client.GetMe(context.Background())
+		if err != nil {
+			t.Fatalf("GetMe: %v", err)
+		}
+		if user.Username != "testuser" {
+			t.Errorf("Username = %q, want testuser", user.Username)
+		}
+		paths := transport.paths()
+		if len(paths) != 1 || paths[0] != "/12345" {
+			t.Errorf("transport saw paths %v, want [/12345]", paths)
+		}
+	})
+
+	t.Run("token endpoint", func(t *testing.T) {
+		transport.mu.Lock()
+		transport.requests = nil
+		transport.body = `{"access_token":"new-token","token_type":"bearer","expires_in":3600}`
+		transport.mu.Unlock()
+
+		if err := client.RefreshToken(context.Background()); err != nil {
+			t.Fatalf("RefreshToken: %v", err)
+		}
+		paths := transport.paths()
+		if len(paths) != 1 || paths[0] != "/refresh_access_token" {
+			t.Errorf("transport saw paths %v, want [/refresh_access_token]", paths)
+		}
+	})
+
+	t.Run("supplied client is not modified", func(t *testing.T) {
+		if supplied.Timeout != 0 {
+			t.Errorf("supplied client Timeout changed to %v", supplied.Timeout)
+		}
+		if supplied.Transport != transport {
+			t.Error("supplied client Transport was replaced")
+		}
+		if got := client.GetConfig().HTTPClient; got != supplied {
+			t.Error("GetConfig did not return the supplied client")
+		}
+		if config.HTTPTimeout != 0 {
+			t.Errorf("NewClient mutated caller HTTPTimeout: %v", config.HTTPTimeout)
+		}
+	})
+
+	t.Run("UpdateConfig swaps the client", func(t *testing.T) {
+		setToken()
+		other := &recordingTransport{body: `{"id":"12345","username":"testuser"}`}
+		updated := baseTestConfig()
+		updated.HTTPClient = &http.Client{Transport: other}
+		if err := client.UpdateConfig(updated); err != nil {
+			t.Fatalf("UpdateConfig: %v", err)
+		}
+		if _, err := client.GetMe(context.Background()); err != nil {
+			t.Fatalf("GetMe: %v", err)
+		}
+		if got := other.paths(); len(got) != 1 {
+			t.Errorf("new transport saw %v, want one request", got)
+		}
+	})
+}
+
+func TestConfigHTTPClientNilKeepsDefaults(t *testing.T) {
+	client, err := NewClient(baseTestConfig())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	snapshot := client.getState().http
+	if snapshot.client == nil {
+		t.Fatal("expected the library to build an HTTP client")
+	}
+	if snapshot.client.Timeout != DefaultHTTPTimeout {
+		t.Errorf("Timeout = %v, want %v", snapshot.client.Timeout, DefaultHTTPTimeout)
+	}
+	if snapshot.client.Transport != nil {
+		t.Errorf("Transport = %v, want nil", snapshot.client.Transport)
+	}
+
+	config := baseTestConfig()
+	config.HTTPTimeout = 7 * time.Second
+	client, err = NewClient(config)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	if got := client.getState().http.client.Timeout; got != 7*time.Second {
+		t.Errorf("Timeout = %v, want 7s", got)
 	}
 }
