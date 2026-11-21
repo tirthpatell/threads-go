@@ -319,7 +319,7 @@ func (h *HTTPClient) executeRequest(opts *RequestOptions, accessToken string, re
 	// Execute request
 	httpResp, err := requestConfig.client.Do(req)
 	if err != nil {
-		return nil, h.wrapNetworkError(err)
+		return nil, h.wrapNetworkError(opts.Context, err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -533,8 +533,12 @@ func isNonRetryablePermanentErrorCode(code int) bool {
 // wrapNetworkError wraps network errors with appropriate error types.
 // The original error is preserved as the Cause, so errors.Is/errors.As
 // can inspect it (e.g., to detect context.Canceled).
-func (h *HTTPClient) wrapNetworkError(err error) error {
+func (h *HTTPClient) wrapNetworkError(ctx context.Context, err error) error {
 	err = sanitizeNetworkError(err)
+
+	if contextDone(ctx) {
+		return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
+	}
 
 	// Check for timeout errors
 	if timeoutErr, ok := err.(interface{ Timeout() bool }); ok && timeoutErr.Timeout() {
@@ -548,6 +552,14 @@ func (h *HTTPClient) wrapNetworkError(err error) error {
 
 	// Default to permanent network error
 	return NewNetworkErrorWithCause(0, "Network error", err.Error(), false, err)
+}
+
+// contextDone reports whether the caller's ctx has ended. A retry with the
+// same ctx fails again, so a request error is then never temporary. The error
+// alone cannot decide this: the error of an http.Client.Timeout also matches
+// context.DeadlineExceeded while ctx is still live.
+func contextDone(ctx context.Context) bool {
+	return ctx != nil && ctx.Err() != nil
 }
 
 // sanitizeNetworkError preserves the error chain while redacting credentials
@@ -733,47 +745,75 @@ func sanitizeURL(u *url.URL) string {
 	return u.String()
 }
 
-// GET performs a GET request
+// GET performs a GET request. It uses context.Background(). Use GETContext to
+// bind the request to a caller's context.
 func (h *HTTPClient) GET(path string, queryParams url.Values, accessToken string) (*Response, error) {
-	return h.GETWithConfig(path, queryParams, accessToken, h.configSnapshot())
+	return h.GETContext(context.Background(), path, queryParams, accessToken)
 }
 
-// GETWithConfig performs a GET request against an explicit transport snapshot.
-func (h *HTTPClient) GETWithConfig(path string, queryParams url.Values, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
+// GETContext performs a GET request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) GETContext(ctx context.Context, path string, queryParams url.Values, accessToken string) (*Response, error) {
+	return h.GETWithConfig(ctx, path, queryParams, accessToken, h.configSnapshot())
+}
+
+// GETWithConfig performs a GET request bound to ctx against an explicit transport snapshot.
+func (h *HTTPClient) GETWithConfig(ctx context.Context, path string, queryParams url.Values, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	return h.DoWithConfig(&RequestOptions{
 		Method:      "GET",
 		Path:        path,
 		QueryParams: queryParams,
+		Context:     ctx,
 	}, accessToken, requestConfig)
 }
 
-// POST performs a POST request
+// POST performs a POST request. It uses context.Background(). Use POSTContext to
+// bind the request to a caller's context.
 func (h *HTTPClient) POST(path string, body interface{}, accessToken string) (*Response, error) {
-	return h.POSTWithConfig(path, body, accessToken, h.configSnapshot())
+	return h.POSTContext(context.Background(), path, body, accessToken)
 }
 
-// POSTWithConfig performs a POST request against an explicit transport snapshot.
-func (h *HTTPClient) POSTWithConfig(path string, body interface{}, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
+// POSTContext performs a POST request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) POSTContext(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
+	return h.POSTWithConfig(ctx, path, body, accessToken, h.configSnapshot())
+}
+
+// POSTWithConfig performs a POST request bound to ctx against an explicit transport snapshot.
+func (h *HTTPClient) POSTWithConfig(ctx context.Context, path string, body interface{}, accessToken string, requestConfig httpConfigSnapshot) (*Response, error) {
 	return h.DoWithConfig(&RequestOptions{
-		Method: "POST",
-		Path:   path,
-		Body:   body,
+		Method:  "POST",
+		Path:    path,
+		Body:    body,
+		Context: ctx,
 	}, accessToken, requestConfig)
 }
 
-// PUT performs a PUT request
+// PUT performs a PUT request. It uses context.Background(). Use PUTContext to
+// bind the request to a caller's context.
 func (h *HTTPClient) PUT(path string, body interface{}, accessToken string) (*Response, error) {
+	return h.PUTContext(context.Background(), path, body, accessToken)
+}
+
+// PUTContext performs a PUT request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) PUTContext(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
 	return h.Do(&RequestOptions{
-		Method: "PUT",
-		Path:   path,
-		Body:   body,
+		Method:  "PUT",
+		Path:    path,
+		Body:    body,
+		Context: ctx,
 	}, accessToken)
 }
 
-// DELETE performs a DELETE request
+// DELETE performs a DELETE request. It uses context.Background(). Use DELETEContext
+// to bind the request to a caller's context.
 func (h *HTTPClient) DELETE(path string, accessToken string) (*Response, error) {
+	return h.DELETEContext(context.Background(), path, accessToken)
+}
+
+// DELETEContext performs a DELETE request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) DELETEContext(ctx context.Context, path string, accessToken string) (*Response, error) {
 	return h.Do(&RequestOptions{
-		Method: "DELETE",
-		Path:   path,
+		Method:  "DELETE",
+		Path:    path,
+		Context: ctx,
 	}, accessToken)
 }

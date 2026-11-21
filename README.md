@@ -113,6 +113,8 @@ client, err := threads.NewClientFromEnv()
 
 ## API Usage
 
+Every method sends its requests with the context you pass in. Cancelling the context or reaching its deadline stops the request.
+
 ### Posts
 
 ```go

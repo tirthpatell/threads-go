@@ -2,10 +2,12 @@ package threads
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -874,6 +876,15 @@ func TestGetAppAccessToken_ServerError(t *testing.T) {
 	}
 }
 
+func TestGetAppAccessToken_NilContext(t *testing.T) {
+	client := testClientNoAuth(t, jsonHandler(500, `{"error":{"message":"boom","type":"OAuthException","code":1}}`))
+	var ctx context.Context
+	_, err := client.GetAppAccessToken(ctx)
+	if err == nil {
+		t.Fatal("expected error for failing server with nil context")
+	}
+}
+
 func TestGetAppAccessToken_ParseError(t *testing.T) {
 	client := testClientNoAuth(t, jsonHandler(200, `not valid json`))
 	_, err := client.GetAppAccessToken(context.Background())
@@ -1111,5 +1122,73 @@ func TestNewClient_NormalizesTokenTypeFromStorage(t *testing.T) {
 		if got := client.GetTokenDebugInfo()["token_type"]; got != TokenTypeBearer {
 			t.Errorf("stored %q: debug info gave %q, want %q", stored, got, TokenTypeBearer)
 		}
+	}
+}
+
+func TestTokenMethods_ContextErrorKeepsCause(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelExpired()
+
+	methods := []struct {
+		name string
+		call func(ctx context.Context, c *Client) error
+	}{
+		{"RefreshToken", func(ctx context.Context, c *Client) error { return c.RefreshToken(ctx) }},
+		{"GetAppAccessToken", func(ctx context.Context, c *Client) error {
+			_, err := c.GetAppAccessToken(ctx)
+			return err
+		}},
+	}
+	contexts := []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"canceled", cancelled, context.Canceled},
+		{"deadline", expired, context.DeadlineExceeded},
+	}
+
+	for _, m := range methods {
+		for _, c := range contexts {
+			t.Run(m.name+"/"+c.name, func(t *testing.T) {
+				client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					t.Error("request reached the server despite a done context")
+				}))
+
+				err := m.call(c.ctx, client)
+				if !errors.Is(err, c.want) {
+					t.Fatalf("errors.Is(err, %v) = false, err: %v", c.want, err)
+				}
+				var netErr *NetworkError
+				if !errors.As(err, &netErr) {
+					t.Fatalf("expected *NetworkError, got %T", err)
+				}
+				if netErr.Temporary {
+					t.Error("context error marked temporary")
+				}
+			})
+		}
+	}
+}
+
+func TestGetAppAccessToken_HTTPTimeoutWithLiveContextRetries(t *testing.T) {
+	var attempts int32
+	config := testClientConfig(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		<-r.Context().Done()
+	}))
+	config.HTTPTimeout = 50 * time.Millisecond
+	config.RetryConfig = &RetryConfig{MaxRetries: 2, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0}
+	client := testClientWithConfig(t, config)
+
+	_, err := client.GetAppAccessToken(context.Background())
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) || !netErr.Temporary {
+		t.Fatalf("want temporary *NetworkError, got %#v", err)
+	}
+	if n := atomic.LoadInt32(&attempts); n != 3 {
+		t.Errorf("server saw %d requests, want 3", n)
 	}
 }
