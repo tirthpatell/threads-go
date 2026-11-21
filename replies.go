@@ -36,7 +36,7 @@ func buildRepliesParams(opts *RepliesOptions, maxLimit int, limitDescription str
 
 // fetchRepliesData makes the API call and handles common error cases
 func (c *Client) fetchRepliesData(ctx context.Context, path string, params url.Values, postID PostID, dataType string) (*RepliesResponse, error) {
-	resp, err := c.httpClient.GET(ctx, path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.GETContext(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (c *Client) managePendingReply(ctx context.Context, replyID PostID, approve
 	}
 
 	path := fmt.Sprintf("/%s/manage_pending_reply", replyID.String())
-	resp, err := c.httpClient.POST(ctx, path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POSTContext(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (c *Client) manageReplyVisibility(ctx context.Context, replyID PostID, hide
 
 	// Make API call to manage reply visibility
 	path := fmt.Sprintf("/%s/manage_reply", replyID.String())
-	resp, err := c.httpClient.POST(ctx, path, params, c.getAccessTokenSafe())
+	resp, err := c.httpClient.POSTContext(ctx, path, params, c.getAccessTokenSafe())
 	if err != nil {
 		return err
 	}

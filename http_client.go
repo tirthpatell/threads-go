@@ -559,7 +559,7 @@ func (h *HTTPClient) wrapNetworkError(ctx context.Context, err error) error {
 // alone cannot decide this: the error of an http.Client.Timeout also matches
 // context.DeadlineExceeded while ctx is still live.
 func contextDone(ctx context.Context) bool {
-	return ctx.Err() != nil
+	return ctx != nil && ctx.Err() != nil
 }
 
 // sanitizeNetworkError preserves the error chain while redacting credentials
@@ -745,8 +745,14 @@ func sanitizeURL(u *url.URL) string {
 	return u.String()
 }
 
-// GET performs a GET request bound to ctx.
-func (h *HTTPClient) GET(ctx context.Context, path string, queryParams url.Values, accessToken string) (*Response, error) {
+// GET performs a GET request. It uses context.Background(). Use GETContext to
+// bind the request to a caller's context.
+func (h *HTTPClient) GET(path string, queryParams url.Values, accessToken string) (*Response, error) {
+	return h.GETContext(context.Background(), path, queryParams, accessToken)
+}
+
+// GETContext performs a GET request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) GETContext(ctx context.Context, path string, queryParams url.Values, accessToken string) (*Response, error) {
 	return h.GETWithConfig(ctx, path, queryParams, accessToken, h.configSnapshot())
 }
 
@@ -760,8 +766,14 @@ func (h *HTTPClient) GETWithConfig(ctx context.Context, path string, queryParams
 	}, accessToken, requestConfig)
 }
 
-// POST performs a POST request bound to ctx.
-func (h *HTTPClient) POST(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
+// POST performs a POST request. It uses context.Background(). Use POSTContext to
+// bind the request to a caller's context.
+func (h *HTTPClient) POST(path string, body interface{}, accessToken string) (*Response, error) {
+	return h.POSTContext(context.Background(), path, body, accessToken)
+}
+
+// POSTContext performs a POST request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) POSTContext(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
 	return h.POSTWithConfig(ctx, path, body, accessToken, h.configSnapshot())
 }
 
@@ -775,8 +787,14 @@ func (h *HTTPClient) POSTWithConfig(ctx context.Context, path string, body inter
 	}, accessToken, requestConfig)
 }
 
-// PUT performs a PUT request bound to ctx.
-func (h *HTTPClient) PUT(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
+// PUT performs a PUT request. It uses context.Background(). Use PUTContext to
+// bind the request to a caller's context.
+func (h *HTTPClient) PUT(path string, body interface{}, accessToken string) (*Response, error) {
+	return h.PUTContext(context.Background(), path, body, accessToken)
+}
+
+// PUTContext performs a PUT request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) PUTContext(ctx context.Context, path string, body interface{}, accessToken string) (*Response, error) {
 	return h.Do(&RequestOptions{
 		Method:  "PUT",
 		Path:    path,
@@ -785,8 +803,14 @@ func (h *HTTPClient) PUT(ctx context.Context, path string, body interface{}, acc
 	}, accessToken)
 }
 
-// DELETE performs a DELETE request bound to ctx.
-func (h *HTTPClient) DELETE(ctx context.Context, path string, accessToken string) (*Response, error) {
+// DELETE performs a DELETE request. It uses context.Background(). Use DELETEContext
+// to bind the request to a caller's context.
+func (h *HTTPClient) DELETE(path string, accessToken string) (*Response, error) {
+	return h.DELETEContext(context.Background(), path, accessToken)
+}
+
+// DELETEContext performs a DELETE request bound to ctx. A nil ctx means context.Background().
+func (h *HTTPClient) DELETEContext(ctx context.Context, path string, accessToken string) (*Response, error) {
 	return h.Do(&RequestOptions{
 		Method:  "DELETE",
 		Path:    path,

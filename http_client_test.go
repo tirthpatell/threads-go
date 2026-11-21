@@ -140,7 +140,7 @@ func TestHTTPClient_PUT(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	resp, err := httpClient.PUT(context.Background(), "/test", url.Values{"key": {"value"}}, "token")
+	resp, err := httpClient.PUTContext(context.Background(), "/test", url.Values{"key": {"value"}}, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestHTTPClient_DELETE(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	resp, err := httpClient.DELETE(context.Background(), "/test", "token")
+	resp, err := httpClient.DELETEContext(context.Background(), "/test", "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestHTTPClient_POST_URLValues(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	_, err := httpClient.POST(context.Background(), "/test", url.Values{"key": {"val"}}, "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", url.Values{"key": {"val"}}, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestHTTPClient_POST_JSONBody(t *testing.T) {
 	})
 
 	// Passing a struct should be JSON-encoded
-	_, err := httpClient.POST(context.Background(), "/test", map[string]string{"key": "value"}, "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", map[string]string{"key": "value"}, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestHTTPClient_POST_StringBody(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	_, err := httpClient.POST(context.Background(), "/test", "hello body", "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", "hello body", "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestHTTPClient_POST_ByteBody(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	_, err := httpClient.POST(context.Background(), "/test", []byte("binary data"), "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", []byte("binary data"), "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestHTTPClient_ResponseBodyLimit(t *testing.T) {
 		httpClient.maxResponseBodySize = 8
 		httpClient.mu.Unlock()
 
-		resp, err := httpClient.GET(context.Background(), "/test", nil, "token")
+		resp, err := httpClient.GETContext(context.Background(), "/test", nil, "token")
 		if err != nil {
 			t.Fatalf("expected response at limit to succeed: %v", err)
 		}
@@ -348,7 +348,7 @@ func TestHTTPClient_ResponseBodyLimit(t *testing.T) {
 		httpClient.maxResponseBodySize = 8
 		httpClient.mu.Unlock()
 
-		resp, err := httpClient.GET(context.Background(), "/test", nil, "token")
+		resp, err := httpClient.GETContext(context.Background(), "/test", nil, "token")
 		if resp != nil {
 			t.Fatalf("expected no response for oversized body, got %#v", resp)
 		}
@@ -392,7 +392,7 @@ func TestHTTPClientRejectsCleartextRemoteBaseURLAtRequestBoundary(t *testing.T) 
 		BaseURL: "http://api.example.com",
 	}, nil)
 
-	if _, err := httpClient.GET(context.Background(), "/test", nil, "sensitive-token"); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
+	if _, err := httpClient.GETContext(context.Background(), "/test", nil, "sensitive-token"); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
 		t.Fatalf("expected request boundary to reject remote cleartext BaseURL, got %v", err)
 	}
 }
@@ -789,5 +789,36 @@ func TestHTTPClient_HTTPTimeoutWithLiveContextRetries(t *testing.T) {
 	}
 	if n := atomic.LoadInt32(&attempts); n != 3 {
 		t.Errorf("server saw %d requests, want 3", n)
+	}
+}
+
+func TestHTTPClient_MethodsWithoutContext(t *testing.T) {
+	var methods []string
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		methods = append(methods, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(handler), &RetryConfig{
+		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
+	})
+
+	calls := map[string]func() (*Response, error){
+		"GET":    func() (*Response, error) { return httpClient.GET("/test", nil, "token") },
+		"POST":   func() (*Response, error) { return httpClient.POST("/test", "body", "token") },
+		"PUT":    func() (*Response, error) { return httpClient.PUT("/test", "body", "token") },
+		"DELETE": func() (*Response, error) { return httpClient.DELETE("/test", "token") },
+	}
+	for _, method := range []string{"GET", "POST", "PUT", "DELETE"} {
+		resp, err := calls[method]()
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", method, err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("%s: expected 200, got %d", method, resp.StatusCode)
+		}
+	}
+	if got := strings.Join(methods, ","); got != "GET,POST,PUT,DELETE" {
+		t.Errorf("unexpected request methods %s", got)
 	}
 }

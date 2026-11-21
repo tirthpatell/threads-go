@@ -876,6 +876,15 @@ func TestGetAppAccessToken_ServerError(t *testing.T) {
 	}
 }
 
+func TestGetAppAccessToken_NilContext(t *testing.T) {
+	client := testClientNoAuth(t, jsonHandler(500, `{"error":{"message":"boom","type":"OAuthException","code":1}}`))
+	var ctx context.Context
+	_, err := client.GetAppAccessToken(ctx)
+	if err == nil {
+		t.Fatal("expected error for failing server with nil context")
+	}
+}
+
 func TestGetAppAccessToken_ParseError(t *testing.T) {
 	client := testClientNoAuth(t, jsonHandler(200, `not valid json`))
 	_, err := client.GetAppAccessToken(context.Background())
