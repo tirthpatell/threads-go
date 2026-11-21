@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -110,6 +111,9 @@ func (c *Client) validatePostOwnership(ctx context.Context, postID PostID) error
 	// Get authenticated user info
 	me, err := c.GetMe(ctx)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 		return NewAuthenticationError(401, "Cannot verify post ownership", "Failed to get authenticated user information")
 	}
 

@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -820,5 +821,55 @@ func TestHTTPClient_MethodsWithoutContext(t *testing.T) {
 	}
 	if got := strings.Join(methods, ","); got != "GET,POST,PUT,DELETE" {
 		t.Errorf("unexpected request methods %s", got)
+	}
+}
+
+func TestHTTPClient_BodyReadCancellationIsNetworkError(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("partial"))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(handler), &RetryConfig{
+		MaxRetries: 3, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2.0,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/body", Context: ctx}, "token")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("errors.Is(err, context.DeadlineExceeded) = false, err: %v", err)
+	}
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T", err)
+	}
+	if netErr.Temporary {
+		t.Error("a cancelled body read must not be temporary")
+	}
+	if elapsed := time.Since(start); elapsed > 900*time.Millisecond {
+		t.Errorf("request retried after cancellation, took %v", elapsed)
+	}
+}
+
+func TestHTTPClient_BodyReadErrorWithLiveContextIsNetworkError(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("partial"))
+	}
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(handler), &RetryConfig{MaxRetries: 0})
+
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/body", Context: context.Background()}, "token")
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T: %v", err, err)
+	}
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("expected io.ErrUnexpectedEOF in chain, got %v", err)
 	}
 }
