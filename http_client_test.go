@@ -3,8 +3,10 @@ package threads
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync/atomic"
@@ -139,7 +141,7 @@ func TestHTTPClient_PUT(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	resp, err := httpClient.PUT("/test", url.Values{"key": {"value"}}, "token")
+	resp, err := httpClient.PUTContext(context.Background(), "/test", url.Values{"key": {"value"}}, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -162,7 +164,7 @@ func TestHTTPClient_DELETE(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	resp, err := httpClient.DELETE("/test", "token")
+	resp, err := httpClient.DELETEContext(context.Background(), "/test", "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,7 +190,7 @@ func TestHTTPClient_POST_URLValues(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	_, err := httpClient.POST("/test", url.Values{"key": {"val"}}, "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", url.Values{"key": {"val"}}, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -209,7 +211,7 @@ func TestHTTPClient_POST_JSONBody(t *testing.T) {
 	})
 
 	// Passing a struct should be JSON-encoded
-	_, err := httpClient.POST("/test", map[string]string{"key": "value"}, "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", map[string]string{"key": "value"}, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -229,7 +231,7 @@ func TestHTTPClient_POST_StringBody(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	_, err := httpClient.POST("/test", "hello body", "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", "hello body", "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -249,7 +251,7 @@ func TestHTTPClient_POST_ByteBody(t *testing.T) {
 		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
 	})
 
-	_, err := httpClient.POST("/test", []byte("binary data"), "token")
+	_, err := httpClient.POSTContext(context.Background(), "/test", []byte("binary data"), "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -261,7 +263,7 @@ func TestWrapNetworkError_Timeout(t *testing.T) {
 	}
 	// Create a timeout error
 	timeoutErr := &net.DNSError{IsTimeout: true}
-	wrapped := httpClient.wrapNetworkError(timeoutErr)
+	wrapped := httpClient.wrapNetworkError(context.Background(), timeoutErr)
 	var netErr *NetworkError
 	if !errors.As(wrapped, &netErr) {
 		t.Fatalf("expected NetworkError, got %T", wrapped)
@@ -275,7 +277,7 @@ func TestWrapNetworkError_Generic(t *testing.T) {
 	httpClient := &HTTPClient{
 		logger: &noopLogger{},
 	}
-	wrapped := httpClient.wrapNetworkError(errors.New("some network problem"))
+	wrapped := httpClient.wrapNetworkError(context.Background(), errors.New("some network problem"))
 	var netErr *NetworkError
 	if !errors.As(wrapped, &netErr) {
 		t.Fatalf("expected NetworkError, got %T", wrapped)
@@ -293,7 +295,7 @@ func TestWrapNetworkError_RedactsSensitiveQueryValues(t *testing.T) {
 		Err: errors.New("connection refused"),
 	}
 
-	wrapped := httpClient.wrapNetworkError(original)
+	wrapped := httpClient.wrapNetworkError(context.Background(), original)
 	for _, secret := range []string{"INPUT-SECRET", "ACCESS-SECRET"} {
 		if strings.Contains(wrapped.Error(), secret) {
 			t.Fatalf("network error exposed %q: %v", secret, wrapped)
@@ -326,7 +328,7 @@ func TestHTTPClient_ResponseBodyLimit(t *testing.T) {
 		httpClient.maxResponseBodySize = 8
 		httpClient.mu.Unlock()
 
-		resp, err := httpClient.GET("/test", nil, "token")
+		resp, err := httpClient.GETContext(context.Background(), "/test", nil, "token")
 		if err != nil {
 			t.Fatalf("expected response at limit to succeed: %v", err)
 		}
@@ -347,7 +349,7 @@ func TestHTTPClient_ResponseBodyLimit(t *testing.T) {
 		httpClient.maxResponseBodySize = 8
 		httpClient.mu.Unlock()
 
-		resp, err := httpClient.GET("/test", nil, "token")
+		resp, err := httpClient.GETContext(context.Background(), "/test", nil, "token")
 		if resp != nil {
 			t.Fatalf("expected no response for oversized body, got %#v", resp)
 		}
@@ -391,7 +393,7 @@ func TestHTTPClientRejectsCleartextRemoteBaseURLAtRequestBoundary(t *testing.T) 
 		BaseURL: "http://api.example.com",
 	}, nil)
 
-	if _, err := httpClient.GET("/test", nil, "sensitive-token"); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
+	if _, err := httpClient.GETContext(context.Background(), "/test", nil, "sensitive-token"); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
 		t.Fatalf("expected request boundary to reject remote cleartext BaseURL, got %v", err)
 	}
 }
@@ -651,5 +653,258 @@ func TestSanitizeURL_RedactsSecrets(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestClientMethodsUseCallerContext(t *testing.T) {
+	calls := []struct {
+		name string
+		call func(ctx context.Context, c *Client) error
+	}{
+		{"GetMe", func(ctx context.Context, c *Client) error {
+			_, err := c.GetMe(ctx)
+			return err
+		}},
+		{"GetUserPosts", func(ctx context.Context, c *Client) error {
+			_, err := c.GetUserPosts(ctx, ConvertToUserID("12345"), nil)
+			return err
+		}},
+		{"DeletePost", func(ctx context.Context, c *Client) error {
+			_, err := c.DeletePost(ctx, ConvertToPostID("67890"))
+			return err
+		}},
+		{"RefreshToken", func(ctx context.Context, c *Client) error {
+			return c.RefreshToken(ctx)
+		}},
+	}
+	for _, tc := range calls {
+		t.Run(tc.name, func(t *testing.T) {
+			var hits int32
+			client := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&hits, 1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"12345","success":true,"access_token":"new-token","token_type":"bearer","expires_in":3600}`))
+			}))
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			if err := tc.call(ctx, client); err == nil {
+				t.Fatal("expected an error for a cancelled context")
+			}
+			if got := atomic.LoadInt32(&hits); got != 0 {
+				t.Errorf("server saw %d requests, want 0", got)
+			}
+		})
+	}
+}
+
+func TestHTTPClient_ContextErrorsAreNotTemporary(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelExpired()
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"canceled", cancelled, context.Canceled},
+		{"deadline", expired, context.DeadlineExceeded},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var attempts int32
+			httpClient := newTestHTTPClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&attempts, 1)
+			}), &RetryConfig{MaxRetries: 3, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2.0})
+
+			start := time.Now()
+			_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/test", Context: tt.ctx}, "token")
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("errors.Is(err, %v) = false, err: %v", tt.want, err)
+			}
+			var netErr *NetworkError
+			if !errors.As(err, &netErr) {
+				t.Fatalf("expected *NetworkError, got %T", err)
+			}
+			if netErr.Temporary {
+				t.Error("context error marked temporary")
+			}
+			if n := atomic.LoadInt32(&attempts); n != 0 {
+				t.Errorf("server saw %d requests, want 0", n)
+			}
+			if d := time.Since(start); d > 500*time.Millisecond {
+				t.Errorf("retry loop did not stop at once: %v", d)
+			}
+		})
+	}
+}
+
+func TestHTTPClient_DeadlineDuringRequestStopsRetries(t *testing.T) {
+	var attempts int32
+	release := make(chan struct{})
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}), &RetryConfig{MaxRetries: 3, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0})
+	t.Cleanup(func() { close(release) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/test", Context: ctx}, "token")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("errors.Is(err, DeadlineExceeded) = false, err: %v", err)
+	}
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) || netErr.Temporary {
+		t.Fatalf("want non-temporary *NetworkError, got %#v", err)
+	}
+	if n := atomic.LoadInt32(&attempts); n != 1 {
+		t.Errorf("server saw %d requests, want 1", n)
+	}
+}
+
+func TestHTTPClient_HTTPTimeoutWithLiveContextRetries(t *testing.T) {
+	var attempts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		<-r.Context().Done()
+	}))
+	t.Cleanup(server.Close)
+	httpClient := NewHTTPClient(&Config{
+		HTTPTimeout: 50 * time.Millisecond,
+		Logger:      &noopLogger{},
+		RetryConfig: &RetryConfig{MaxRetries: 2, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0},
+		BaseURL:     server.URL,
+	}, nil)
+
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/test", Context: context.Background()}, "token")
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) || !netErr.Temporary {
+		t.Fatalf("want temporary *NetworkError, got %#v", err)
+	}
+	if n := atomic.LoadInt32(&attempts); n != 3 {
+		t.Errorf("server saw %d requests, want 3", n)
+	}
+}
+
+func TestHTTPClient_MethodsWithoutContext(t *testing.T) {
+	var methods []string
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		methods = append(methods, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(handler), &RetryConfig{
+		MaxRetries: 0, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 1.0,
+	})
+
+	calls := map[string]func() (*Response, error){
+		"GET":    func() (*Response, error) { return httpClient.GET("/test", nil, "token") },
+		"POST":   func() (*Response, error) { return httpClient.POST("/test", "body", "token") },
+		"PUT":    func() (*Response, error) { return httpClient.PUT("/test", "body", "token") },
+		"DELETE": func() (*Response, error) { return httpClient.DELETE("/test", "token") },
+	}
+	for _, method := range []string{"GET", "POST", "PUT", "DELETE"} {
+		resp, err := calls[method]()
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", method, err)
+		}
+		if resp.StatusCode != 200 {
+			t.Errorf("%s: expected 200, got %d", method, resp.StatusCode)
+		}
+	}
+	if got := strings.Join(methods, ","); got != "GET,POST,PUT,DELETE" {
+		t.Errorf("unexpected request methods %s", got)
+	}
+}
+
+func TestHTTPClient_BodyReadCancellationIsNetworkError(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("partial"))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(handler), &RetryConfig{
+		MaxRetries: 3, InitialDelay: time.Second, MaxDelay: time.Second, BackoffFactor: 2.0,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/body", Context: ctx}, "token")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("errors.Is(err, context.DeadlineExceeded) = false, err: %v", err)
+	}
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T", err)
+	}
+	if netErr.Temporary {
+		t.Error("a cancelled body read must not be temporary")
+	}
+	if elapsed := time.Since(start); elapsed > 900*time.Millisecond {
+		t.Errorf("request retried after cancellation, took %v", elapsed)
+	}
+}
+
+func TestHTTPClient_BodyReadErrorWithLiveContextIsNetworkError(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("partial"))
+	}
+	httpClient := newTestHTTPClient(t, http.HandlerFunc(handler), &RetryConfig{MaxRetries: 0})
+
+	_, err := httpClient.Do(&RequestOptions{Method: "GET", Path: "/body", Context: context.Background()}, "token")
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T: %v", err, err)
+	}
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("expected io.ErrUnexpectedEOF in chain, got %v", err)
+	}
+}
+
+func TestHTTPClient_StalledBodyOnWriteIsNotRetried(t *testing.T) {
+	var requests atomic.Int32
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("partial"))
+		w.(http.Flusher).Flush()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+	}
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(server.Close)
+	httpClient := NewHTTPClient(&Config{
+		HTTPTimeout: 200 * time.Millisecond,
+		Logger:      &noopLogger{},
+		BaseURL:     server.URL,
+		RetryConfig: &RetryConfig{MaxRetries: 3, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond, BackoffFactor: 1.0},
+	}, nil)
+
+	_, err := httpClient.Do(&RequestOptions{Method: "POST", Path: "/body", Context: context.Background()}, "token")
+	var netErr *NetworkError
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected *NetworkError, got %T: %v", err, err)
+	}
+	if netErr.Temporary {
+		t.Error("a failed body read must not be temporary")
+	}
+	if got := requests.Load(); got != 1 {
+		t.Errorf("server received %d requests, want 1", got)
 	}
 }

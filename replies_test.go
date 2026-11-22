@@ -112,7 +112,7 @@ func TestBuildRepliesParams_AllOptions(t *testing.T) {
 
 func TestFetchRepliesData_404(t *testing.T) {
 	client := testClient(t, jsonHandler(404, `{"error":{"message":"not found"}}`))
-	_, err := client.fetchRepliesData("/test/replies", nil, ConvertToPostID("post_1"), "replies")
+	_, err := client.fetchRepliesData(context.Background(), "/test/replies", nil, ConvertToPostID("post_1"), "replies")
 	if err == nil {
 		t.Fatal("expected error for 404")
 	}
@@ -120,7 +120,7 @@ func TestFetchRepliesData_404(t *testing.T) {
 
 func TestFetchRepliesData_403(t *testing.T) {
 	client := testClient(t, jsonHandler(403, `{"error":{"message":"forbidden"}}`))
-	_, err := client.fetchRepliesData("/test/replies", nil, ConvertToPostID("post_1"), "replies")
+	_, err := client.fetchRepliesData(context.Background(), "/test/replies", nil, ConvertToPostID("post_1"), "replies")
 	if err == nil {
 		t.Fatal("expected error for 403")
 	}
@@ -128,7 +128,7 @@ func TestFetchRepliesData_403(t *testing.T) {
 
 func TestFetchRepliesData_500(t *testing.T) {
 	client := testClient(t, jsonHandler(500, `{"error":{"message":"server error"}}`))
-	_, err := client.fetchRepliesData("/test/replies", nil, ConvertToPostID("post_1"), "replies")
+	_, err := client.fetchRepliesData(context.Background(), "/test/replies", nil, ConvertToPostID("post_1"), "replies")
 	if err == nil {
 		t.Fatal("expected error for 500")
 	}
@@ -517,7 +517,7 @@ func TestFetchRepliesData_Success(t *testing.T) {
 		"data": [{"id":"r1","text":"reply"}],
 		"paging": {"cursors":{"after":"c1"}}
 	}`))
-	resp, err := client.fetchRepliesData("/test/replies", nil, ConvertToPostID("post_1"), "replies")
+	resp, err := client.fetchRepliesData(context.Background(), "/test/replies", nil, ConvertToPostID("post_1"), "replies")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -528,7 +528,7 @@ func TestFetchRepliesData_Success(t *testing.T) {
 
 func TestFetchRepliesData_InvalidJSON(t *testing.T) {
 	client := testClient(t, jsonHandler(200, `not json`))
-	_, err := client.fetchRepliesData("/test/replies", nil, ConvertToPostID("post_1"), "replies")
+	_, err := client.fetchRepliesData(context.Background(), "/test/replies", nil, ConvertToPostID("post_1"), "replies")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON response")
 	}

@@ -2,6 +2,7 @@ package threads
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -307,5 +308,29 @@ func TestValidatePostOwnership_MatchingOwnerID(t *testing.T) {
 
 	if err := client.validatePostOwnership(context.Background(), ConvertToPostID("post_1")); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidatePostOwnership_GetMeContextErrorIsKept(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasPrefix(r.URL.Path, "/12345") {
+			cancel()
+			<-r.Context().Done()
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"post_1","username":"me","owner":{"id":"12345"}}`))
+	}
+
+	client := testClient(t, http.HandlerFunc(handler))
+
+	err := client.validatePostOwnership(ctx, ConvertToPostID("post_1"))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("errors.Is(err, context.Canceled) = false, err: %v", err)
+	}
+	if IsAuthenticationError(err) {
+		t.Errorf("a cancelled context must not become an AuthenticationError: %v", err)
 	}
 }
